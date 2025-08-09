@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from src.dependencies import get_current_user, UserSession
 from src.service_locator import service_locator
-from src.features.federation.commands import RegisterClub
+from src.features.federation.application import RegisterClub
 
 router = APIRouter(prefix="/federation", tags=["federation"])
 

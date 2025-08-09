@@ -1,9 +1,25 @@
 
 
+from dataclasses import dataclass
 from datetime import datetime
-from src.features.players.events import PlayerCreated
+from src.eventsourcing.event import IEvent
 from src.eventsourcing.aggregates import AggregateRoot
 from multipledispatch import dispatch
+
+@dataclass
+class PlayerCreated(IEvent):
+    license_id : str
+    first_name : str
+    last_name : str
+    date_of_birth : str
+    email : str | None = None
+    phone : str | None = None
+
+@dataclass
+class PlayerClubMembershipStarted(IEvent):
+    club_id : str
+    season : str
+
 
 class Player(AggregateRoot):
     __id : str

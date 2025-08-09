@@ -1,7 +1,23 @@
+from dataclasses import dataclass
+from src.eventsourcing.event import IEvent
 from src.eventsourcing.exceptions import InvalidOperationError
-from src.features.federation.events import ClubRegistered, FederationCreated, PlayerRegistered
 from src.eventsourcing.aggregates import AggregateRoot
 from multipledispatch import dispatch
+
+@dataclass
+class FederationCreated(IEvent):
+    pass
+
+@dataclass
+class ClubRegistered(IEvent):
+    registration_number : str
+    name : str
+    owner_id : str
+
+@dataclass
+class PlayerRegistered(IEvent):
+    license_id : str
+
 
 class Federation(AggregateRoot):
     clubs : list[str] = []

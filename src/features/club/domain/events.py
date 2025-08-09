@@ -1,9 +1,7 @@
 
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from src.eventsourcing.event import IEvent
-from src.common.guid import Guid
 
 
 @dataclass

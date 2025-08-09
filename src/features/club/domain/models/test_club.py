@@ -2,8 +2,8 @@ import unittest
 import pytest
 from src.eventsourcing.exceptions import InvalidOperationError
 from src.common.enums import StaffMemberRole
-from src.features.club.aggregates import Club
-from src.features.club.events import ClubCreated, OwnerShipTransferred, PlayerRegisteredToClub, RoleAddedToStaffMember, RoleRemovedFromStaffMember, StaffMemberAdded, StaffMemberRemovedFromClub
+from src.features.club.domain.models.club import Club
+from src.features.club.domain.events import ClubCreated, OwnerShipTransferred, PlayerRegisteredToClub, RoleAddedToStaffMember, RoleRemovedFromStaffMember, StaffMemberAdded, StaffMemberRemovedFromClub
 
 class TestClubAggregate(unittest.IsolatedAsyncioTestCase):
 

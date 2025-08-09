@@ -1,22 +1,21 @@
 
 
+from dataclasses import dataclass
 from datetime import datetime
-
 from pydantic import BaseModel
 from src.common.enums import StaffMemberRole
+from src.eventsourcing.event import IEvent
 from src.eventsourcing.exceptions import InvalidOperationError
 from src.eventsourcing.aggregates import AggregateRoot
 from multipledispatch import dispatch
 
-from src.features.club.events import ClubCreated, OwnerShipTransferred, PlayerRegisteredToClub, RoleAddedToStaffMember, RoleRemovedFromStaffMember, StaffMemberAdded, StaffMemberRemovedFromClub
+from src.features.club.domain.events import ClubCreated, OwnerShipTransferred, PlayerRegisteredToClub, RoleAddedToStaffMember, RoleRemovedFromStaffMember, StaffMemberAdded, StaffMemberRemovedFromClub
 
 
 class ClubPlayerInfo(BaseModel):
     license_id : str
     license_type : str
     season : str
-
-
 
 class Club(AggregateRoot):
     __id : str

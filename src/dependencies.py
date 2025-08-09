@@ -8,7 +8,7 @@ from src.eventsourcing.exceptions import AggregateNotFoundError
 from src.eventsourcing.messages import IMessageBroker
 from src.eventsourcing.repositories import EventStoreRepository
 from src.features.club.aggregates import Club
-from src.features.club.integration_events import ClubIntegrationEventHandler
+from src.features.club.application import ClubIntegrationEventHandler
 from src.features.federation.aggregates import Federation
 from src.features.federation.commands import FederationCommandHandler, RegisterClub
 from src.features.federation import integration_events as federation_integration_events

@@ -1,5 +1,5 @@
-from src.eventsourcing.messages import IntegrationEvent, IMessageBroker, MessageHandler
-from src.eventsourcing.repositories import IRepository
+from src.common.eventsourcing import IRepository
+from src.common.eventsourcing.messages import IMessageBroker, MessageHandler
 from src.features.players.aggregate import Player
 from src.features.federation import application as federation_integration_events
 from multipledispatch import dispatch

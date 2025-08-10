@@ -1,6 +1,4 @@
 import unittest
-import pytest
-from src.eventsourcing.exceptions import InvalidOperationError
 from src.features.club.domain.models.club import Club
 from src.features.club.domain.events import ClubCreated, PlayerRegisteredToClub
 
@@ -35,10 +33,11 @@ class TestClubAggregate(unittest.IsolatedAsyncioTestCase):
         assert player.season == season
 
 
-    async def test_cannot_register_player_with_same_license_type_and_season(self) -> None:
+    async def test_adding_player_should_be_idempotent(self) -> None:
         player_id="1234567890"
         license_type="A"
         season="2025"
         self.club.loads_from_history([PlayerRegisteredToClub(player_id=player_id, license_type=license_type, season=season)])
-        with pytest.raises(InvalidOperationError):
-            self.club.register_player(player_id=player_id, license_type=license_type, season=season)
+        self.club.register_player(player_id=player_id, license_type=license_type, season=season)
+        events = self.club.get_uncommitted_changes()
+        assert len(events) == 0

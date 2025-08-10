@@ -1,9 +1,9 @@
 import unittest
 import pytest
-from src.eventsourcing.exceptions import InvalidOperationError
+from src.common.eventsourcing.exceptions import InvalidOperationError
 from src.common.enums import StaffMemberRole
 from src.features.auth.domain.models.club_managment import ClubManagment
-from src.features.auth.domain.models.events import ClubManagmentCreated, OwnerShipTransferred, RoleAddedToStaffMember, RoleRemovedFromStaffMember, StaffMemberAdded, StaffMemberRemovedFromClub
+from src.features.auth.domain.events import ClubManagmentCreated, OwnerShipTransferred, RoleAddedToStaffMember, RoleRemovedFromStaffMember, StaffMemberAdded, StaffMemberRemovedFromClub
 
 class TestClubAggregate(unittest.IsolatedAsyncioTestCase):
 
@@ -116,3 +116,10 @@ class TestClubAggregate(unittest.IsolatedAsyncioTestCase):
         assert len(events) == 1
         assert events[0].type == StaffMemberRemovedFromClub.type
         assert staff_member_id not in self.club.staff_members
+
+    async def test_remove_staff_member_should_be_ignored_if_staff_member_does_not_exist(self) -> None:
+        staff_member_id="new_staff_member"
+        self.club.remove_staff_member(staff_member_id=staff_member_id)
+        events = self.club.get_uncommitted_changes()
+        assert len(events) == 0
+        assert self.owner_id in self.club.staff_members

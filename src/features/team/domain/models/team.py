@@ -3,8 +3,8 @@ from multipledispatch import dispatch
 from pydantic import BaseModel
 from src.common.enums import Gender, PlayerPosition, TeamCategory
 from src.common.utils import get_authorized_categories, get_current_season
-from src.eventsourcing.exceptions import InvalidOperationError
-from src.eventsourcing.aggregates import AggregateRoot
+from src.common.eventsourcing import AggregateRoot
+from src.common.eventsourcing.exceptions import InvalidOperationError
 from src.features.team.domain.models.entities import Player
 from src.features.team.domain.events import PlayerAdded, PlayerRemoved, TeamCreated
 
@@ -35,12 +35,14 @@ class Team(AggregateRoot):
         if init:
             self._apply_change(TeamCreated(team_id=init.team_id, category=init.category, club_id=init.club_id, name=init.name, gender=init.gender, season=init.season or get_current_season()))
 
-    def validate_team(self) -> None:
+    def validate_team(self) -> tuple[bool, list[str]]:
+        errors = []
         if len(self.players) > 12:
-            raise ValueError("Team can only have 12 players")
+            errors.append("Team can only have 12 players")
         for position in PlayerPosition:
             if self.nb_players_by_position.get(position, 0) < 1:
-                raise ValueError(f"Team must have at least 1 player for position {position}")
+                errors.append(f"Team must have at least 1 player for position {position}")
+        return len(errors) == 0, errors
 
     def add_player(self, player: Player) -> None:
         if self.category not in get_authorized_categories(self.season, player.date_of_birth):

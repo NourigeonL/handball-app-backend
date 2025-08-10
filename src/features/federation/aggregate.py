@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from src.eventsourcing.event import IEvent
-from src.eventsourcing.exceptions import InvalidOperationError
-from src.eventsourcing.aggregates import AggregateRoot
+from src.common.eventsourcing import AggregateRoot
+from src.common.eventsourcing.exceptions import InvalidOperationError
+from src.common.eventsourcing import IEvent
 from multipledispatch import dispatch
 
 @dataclass

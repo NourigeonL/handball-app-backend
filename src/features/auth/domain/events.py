@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from src.eventsourcing.event import IEvent
+from src.common.eventsourcing import IEvent
 
 
 @dataclass

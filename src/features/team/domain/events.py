@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 
 from src.common.enums import Gender, TeamCategory
-from src.eventsourcing.event import IEvent
+from src.common.eventsourcing import IEvent
 from src.features.team.domain.models.entities import Player
 
 

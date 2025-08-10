@@ -3,8 +3,8 @@ import logging
 from typing import Coroutine, Any
 
 from src.common.exceptions import GenericError
-from src.eventsourcing.exceptions import InvalidOperationError
-from src.eventsourcing.messages import Command, IMessageBroker, IntegrationEvent, Message, MessageHandler
+from src.common.eventsourcing.exceptions import InvalidOperationError
+from src.common.eventsourcing.messages import Command, IMessageBroker, IntegrationEvent, Message, MessageHandler
 from src.common.loggers import app_logger
 
 class InMemBus(IMessageBroker):

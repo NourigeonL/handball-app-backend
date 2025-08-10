@@ -2,8 +2,8 @@ import abc
 import os
 import sys
 import json
-from src.eventsourcing.event import IEvent
-from src.eventsourcing.exceptions import ConcurrencyError
+from .event import IEvent
+from .exceptions import ConcurrencyError
 
 
 class IEventStore(abc.ABC):

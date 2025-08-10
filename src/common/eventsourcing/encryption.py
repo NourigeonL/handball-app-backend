@@ -3,7 +3,7 @@ from cryptography.fernet import Fernet
 import abc
 from copy import deepcopy
 from typing import Optional, List, Type, Callable
-from src.eventsourcing.data import Data
+from src.common.eventsourcing.data import Data
 
 class ICryptoStore(abc.ABC):
     """Abstract base class for crypto storage operations."""

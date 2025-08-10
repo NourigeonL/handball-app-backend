@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from multipledispatch import dispatch
 from src.common.enums import LicenseType
-from src.eventsourcing.exceptions import InvalidOperationError
-from src.eventsourcing.messages import Command, IMessageBroker, IntegrationEvent, MessageHandler
-from src.eventsourcing.repositories import IRepository
+from src.common.eventsourcing import IRepository
+from src.common.eventsourcing.exceptions import InvalidOperationError
+from src.common.eventsourcing.messages import Command, IMessageBroker, IntegrationEvent, MessageHandler
 from src.features.federation.aggregate import Federation
 
 @dataclass

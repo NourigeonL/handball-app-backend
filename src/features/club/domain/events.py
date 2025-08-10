@@ -1,7 +1,7 @@
 
 
 from dataclasses import dataclass
-from src.eventsourcing.event import IEvent
+from src.common.eventsourcing import IEvent
 
 
 @dataclass
@@ -11,6 +11,12 @@ class ClubCreated(IEvent):
 
 @dataclass
 class PlayerRegisteredToClub(IEvent):
+    player_id : str
+    license_type : str
+    season : str
+
+@dataclass
+class PlayerLicenseRenewed(IEvent):
     player_id : str
     license_type : str
     season : str

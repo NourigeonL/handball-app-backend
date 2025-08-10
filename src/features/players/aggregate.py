@@ -2,8 +2,8 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from src.eventsourcing.event import IEvent
-from src.eventsourcing.aggregates import AggregateRoot
+from src.common.eventsourcing import AggregateRoot
+from src.common.eventsourcing import IEvent
 from multipledispatch import dispatch
 
 @dataclass

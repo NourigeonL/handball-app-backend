@@ -1,7 +1,7 @@
 import unittest
 from src.common.enums import LicenseType
-from src.eventsourcing.event_stores import InMemEventStore
-from src.eventsourcing.repositories import EventStoreRepository
+from src.common.eventsourcing.event_stores import InMemEventStore
+from src.common.eventsourcing.repositories import EventStoreRepository
 from src.features.federation.aggregate import Federation
 from src.features.players.aggregate import Player
 from src.features.players.application import PlayerIntegrationEventHandler

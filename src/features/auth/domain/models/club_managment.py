@@ -3,9 +3,9 @@ from datetime import datetime
 
 from multipledispatch import dispatch
 from src.common.enums import StaffMemberRole
-from src.eventsourcing.aggregates import AggregateRoot
-from src.eventsourcing.exceptions import InvalidOperationError
-from src.features.auth.domain.models.events import ClubManagmentCreated, OwnerShipTransferred, RoleAddedToStaffMember, RoleRemovedFromStaffMember, StaffMemberAdded, StaffMemberRemovedFromClub
+from src.common.eventsourcing import AggregateRoot
+from src.common.eventsourcing.exceptions import InvalidOperationError
+from src.features.auth.domain.events import ClubManagmentCreated, OwnerShipTransferred, RoleAddedToStaffMember, RoleRemovedFromStaffMember, StaffMemberAdded, StaffMemberRemovedFromClub
 
 
 class ClubManagment(AggregateRoot):
@@ -65,7 +65,7 @@ class ClubManagment(AggregateRoot):
 
     def remove_staff_member(self, staff_member_id : str) -> None:
         if staff_member_id not in self.staff_members:
-            raise InvalidOperationError(f"Staff member {staff_member_id} not found in club {self.id}")
+            return
         if staff_member_id == self.owner_id:
             raise InvalidOperationError(f"Cannot remove owner from club")
         self._apply_change(StaffMemberRemovedFromClub(staff_member_id=staff_member_id))

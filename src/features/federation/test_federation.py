@@ -1,6 +1,6 @@
 from unittest import IsolatedAsyncioTestCase
 import pytest
-from src.eventsourcing.exceptions import InvalidOperationError
+from src.common.eventsourcing.exceptions import InvalidOperationError
 from src.features.federation.aggregate import Federation, ClubRegistered, PlayerRegistered
 
 

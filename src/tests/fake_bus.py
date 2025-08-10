@@ -1,5 +1,5 @@
 from src.common.exceptions import GenericError
-from src.eventsourcing.messages import Command, IMessageBroker, IntegrationEvent
+from src.common.eventsourcing.messages import Command, IMessageBroker, IntegrationEvent
 from src.in_mem_bus import InMemBus
 
 class FakeBus(IMessageBroker):

@@ -1,7 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel
-from src.eventsourcing.exceptions import InvalidOperationError
-from src.eventsourcing.aggregates import AggregateRoot
+from src.common.eventsourcing import AggregateRoot
 from multipledispatch import dispatch
 
 from src.features.club.domain.events import ClubCreated, PlayerRegisteredToClub
@@ -37,9 +36,8 @@ class Club(AggregateRoot):
         player_info = self.players.get(player_id)
         if player_info:
             if player_info.license_type == license_type and player_info.season == season:
-                raise InvalidOperationError(f"Player {player_id} is already registered to club {self.id} with same license type and season")
-        else:
-            self._apply_change(PlayerRegisteredToClub(player_id=player_id, license_type=license_type, season=season))
+                return
+        self._apply_change(PlayerRegisteredToClub(player_id=player_id, license_type=license_type, season=season))
 
 
     @dispatch(ClubCreated)

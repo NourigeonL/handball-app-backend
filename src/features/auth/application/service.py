@@ -1,8 +1,7 @@
 
 from multipledispatch import dispatch
-from src.common.interfaces import IAuthService
 from src.common.eventsourcing import IRepository
-from src.common.eventsourcing.messages import Command
+from src.common.cqrs import IAuthService, Command
 from src.features.auth.domain.models.club_managment import ClubManagment
 from src.features.team.application.commands import CreateTeamCommand
 

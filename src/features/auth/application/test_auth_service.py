@@ -2,8 +2,8 @@ import unittest
 import pytest
 from unittest.mock import AsyncMock
 from src.common.enums import Gender, TeamCategory
-from src.common.eventsourcing.exceptions import UnauthorizedError
-from src.common.eventsourcing.messages import Command
+from src.common.cqrs.exceptions import UnauthorizedError
+from src.common.cqrs import Command
 from src.features.auth.application.service import AuthService
 from src.features.auth.domain.models.club_managment import ClubManagment
 from src.features.team.application.commands import CreateTeamCommand

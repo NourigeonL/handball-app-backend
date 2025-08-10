@@ -1,17 +1,14 @@
-
-import asyncio
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import contextmanager
 import json
 import os
-from typing import AsyncGenerator, Generator
+from typing import Generator
 
 from multipledispatch import dispatch
 
 from src.common.dtos import ClubListDTO
-from src.eventsourcing.event import IEvent
-from src.eventsourcing.event_stores import get_event_class
-from src.features.club.events import ClubCreated
-from src.features.federation.events import ClubRegistered
+from src.common.eventsourcing.event import IEvent
+from src.common.eventsourcing.event_stores import get_event_class
+from src.features.federation.aggregate import ClubRegistered
 
 class InMemDB:
 

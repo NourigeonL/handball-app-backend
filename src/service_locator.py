@@ -1,6 +1,6 @@
 
 
-from src.eventsourcing.messages import IMessageBroker
+from src.common.cqrs.messages import IEventPublisher
 from src.read_facades.public_read_facade import PublicReadFacade
 
 class ServiceLocator:
@@ -15,11 +15,11 @@ class ServiceLocator:
         self.__global["public_read_facade"] = public_read_facade
 
     @property
-    def message_broker(self) -> IMessageBroker:
-        return self.__global["message_broker"]
+    def event_publisher(self) -> IEventPublisher:
+        return self.__global["event_publisher"]
     
-    @message_broker.setter
-    def message_broker(self, message_broker : IMessageBroker) -> None:
-        self.__global["message_broker"] = message_broker
+    @event_publisher.setter
+    def event_publisher(self, event_publisher : IEventPublisher) -> None:
+        self.__global["event_publisher"] = event_publisher
 
 service_locator = ServiceLocator()

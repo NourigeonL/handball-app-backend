@@ -1,11 +1,11 @@
 from src.common.eventsourcing import IRepository
-from src.common.eventsourcing.messages import IMessageBroker, MessageHandler
+from src.common.cqrs import IMessageBroker, IntegrationEventHandler
 from src.features.players.aggregate import Player
 from src.features.federation import application as federation_integration_events
 from multipledispatch import dispatch
 
 
-class PlayerIntegrationEventHandler(MessageHandler):
+class PlayerIntegrationEventHandler(IntegrationEventHandler):
     def __init__(self, player_repo : IRepository[Player], message_broker : IMessageBroker) -> None:
         super().__init__(message_broker)
         self.__player_repo = player_repo

@@ -3,22 +3,23 @@ from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 from fastapi import FastAPI, HTTPException, Request, status
 from pydantic import BaseModel
-from src.eventsourcing.event_stores import IEventStore, JsonFileEventStore
-from src.eventsourcing.exceptions import AggregateNotFoundError
-from src.eventsourcing.messages import IMessageBroker
-from src.eventsourcing.repositories import EventStoreRepository
-from src.features.club.aggregates import Club
+from src.common.eventsourcing.event_stores import IEventStore, JsonFileEventStore
+from src.common.eventsourcing.exceptions import AggregateNotFoundError
+from src.common.cqrs.messages import IEventPublisher
+from src.common.eventsourcing.repositories import EventStoreRepository
+from src.features.auth.application.service import AuthService
+from src.features.auth.domain.models.club_managment import ClubManagment
+from src.features.club.domain.models import Club
 from src.features.club.application import ClubIntegrationEventHandler
-from src.features.federation.aggregates import Federation
-from src.features.federation.commands import FederationCommandHandler, RegisterClub
-from src.features.federation import integration_events as federation_integration_events
+from src.features.federation.aggregate import Federation
+from src.features.federation.application import FederationCommandHandler, IEClubRegistered, RegisterClub
 from src.read_facades.db import InMemDB
 from src.read_facades.public_read_facade import PublicReadFacade
 from src.service_locator import service_locator
 from jose import jwt, ExpiredSignatureError, JWTError
 from src.settings import settings
 from src.common.loggers import app_logger
-from src.in_mem_bus import InMemBus
+from src.common.cqrs.in_mem_bus import InMemBus
 sessions = {}
 
 
@@ -73,18 +74,19 @@ async def get_current_user(request: Request) -> UserSession:
         raise HTTPException(status_code=401, detail="Not Authenticated")
 
 
-async def init_message_broker(message_broker : InMemBus, event_store : IEventStore) -> IMessageBroker:
+async def init_message_broker(message_broker : InMemBus, event_store : IEventStore) -> IEventPublisher:
     federation_repo = EventStoreRepository(event_store, Federation)
     try:
         await federation_repo.get_by_id(Federation.to_stream_id())
     except AggregateNotFoundError:
         await federation_repo.save(Federation(), -1)
-    federation_command_handler = FederationCommandHandler(federation_repo, message_broker)
+    auth_service = AuthService(club_managment_repository=EventStoreRepository(event_store, ClubManagment))
+    federation_command_handler = FederationCommandHandler(federation_repo, auth_service, message_broker)
     club_repo = EventStoreRepository(event_store, Club)
     club_integration_event_handler = ClubIntegrationEventHandler(club_repo, message_broker)
 
     message_broker.register_handler(RegisterClub, federation_command_handler)
-    message_broker.register_handler(federation_integration_events.IEClubRegistered, club_integration_event_handler)
+    message_broker.register_handler(IEClubRegistered, club_integration_event_handler)
 
     return message_broker
 
@@ -93,7 +95,7 @@ async def lifespan(app : FastAPI)-> AsyncGenerator[Any, None]:
     event_store = JsonFileEventStore("./event_store.json")
     in_mem_db = InMemDB(event_store.file_path)
     service_locator.public_read_facade = PublicReadFacade(in_mem_db)
-    service_locator.message_broker = await init_message_broker(InMemBus(), event_store)
+    service_locator.event_publisher = await init_message_broker(InMemBus(), event_store)
     yield
     
     

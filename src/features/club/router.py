@@ -21,5 +21,5 @@ class RegisterPlayerRequest(BaseModel):
 
 @router.post("{club_id}/register-player")
 async def register_player(club_id: str, request: RegisterPlayerRequest, current_user: Annotated[UserSession, Depends(get_current_user)]):
-    if e:= await service_locator.message_broker.send(RegisterPlayer(club_id=club_id, player_id=request.player_id, license_type=request.license_type, season=request.season, user_id=current_user.user_id)):
+    if e:= await service_locator.event_publisher.send(RegisterPlayer(club_id=club_id, player_id=request.player_id, license_type=request.license_type, season=request.season, user_id=current_user.user_id)):
         raise e

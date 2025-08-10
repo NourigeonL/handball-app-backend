@@ -5,7 +5,7 @@ from src.common.eventsourcing.repositories import EventStoreRepository
 from src.features.federation.aggregate import Federation
 from src.features.players.aggregate import Player
 from src.features.players.application import PlayerIntegrationEventHandler
-from src.tests.fake_bus import FakeBus
+from src.common.cqrs.testing import FakeBus
 from src.features.federation import application as federation_integration_events
 
 class TestPlayer(unittest.IsolatedAsyncioTestCase):

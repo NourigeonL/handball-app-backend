@@ -1,13 +1,10 @@
 
 
 from dataclasses import dataclass
-from datetime import date
-
 from multipledispatch import dispatch
 from src.common.enums import LicenseType
-from src.eventsourcing.exceptions import InvalidOperationError, UnauthorizedError
-from src.eventsourcing.messages import Command, IMessageBroker, IntegrationEvent, MessageHandler
-from src.eventsourcing.repositories import IRepository
+from src.common.cqrs.messages import Command, IEventPublisher, IntegrationEvent, IntegrationEventHandler
+from src.common.eventsourcing.repositories import IRepository
 from src.features.club.domain.models import Club
 from src.features.federation import application as federation_integration_events
 
@@ -25,16 +22,10 @@ class PlayerJoinedClubIE(IntegrationEvent):
     club_id : str
     license_type : LicenseType
     season : str
-
-
-class ClubCommandHandler(MessageHandler):
-    def __init__(self, repo : IRepository[Club], message_broker : IMessageBroker) -> None:
-        super().__init__(message_broker)
-        self.__repo = repo
     
-class ClubIntegrationEventHandler(MessageHandler):
-    def __init__(self, club_repo : IRepository[Club], message_broker : IMessageBroker) -> None:
-        super().__init__(message_broker)
+class ClubIntegrationEventHandler(IntegrationEventHandler):
+    def __init__(self, club_repo : IRepository[Club], event_publisher : IEventPublisher) -> None:
+        super().__init__(event_publisher)
         self.__club_repo = club_repo
 
     @dispatch(federation_integration_events.IEClubRegistered)
@@ -47,4 +38,4 @@ class ClubIntegrationEventHandler(MessageHandler):
         club = await self.__club_repo.get_by_id(event.club_id)
         club.register_player(player_id=event.license_id, license_type=event.license_type, season=event.season)
         await self.__club_repo.save(club, club.version)
-        await self._message_broker.publish(PlayerJoinedClubIE(player_id=event.license_id, club_id=event.club_id, license_type=event.license_type, season=event.season))
+        await self._event_publisher.publish(PlayerJoinedClubIE(player_id=event.license_id, club_id=event.club_id, license_type=event.license_type, season=event.season))

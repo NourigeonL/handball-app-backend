@@ -14,7 +14,7 @@ class RegisterClubRequest(BaseModel):
 
 @router.post("/register-club")
 async def register_club(request: RegisterClubRequest, current_user : Annotated[UserSession, Depends(get_current_user)]):
-    if e:= await service_locator.message_broker.send(RegisterClub(registration_number=request.registration_number, name=request.name, owner_id=current_user.user_id)):
+    if e:= await service_locator.event_publisher.send(RegisterClub(registration_number=request.registration_number, name=request.name, owner_id=current_user.user_id)):
         raise e
 
 @router.get("/clubs")

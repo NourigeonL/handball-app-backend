@@ -3,7 +3,7 @@ from multipledispatch import dispatch
 from src.common.enums import LicenseType
 from src.common.eventsourcing import IRepository
 from src.common.eventsourcing.exceptions import InvalidOperationError
-from src.common.eventsourcing.messages import Command, IMessageBroker, IntegrationEvent, MessageHandler
+from src.common.cqrs import Command, IMessageBroker, IntegrationEvent, CommandHandler, IAuthService
 from src.features.federation.aggregate import Federation
 
 @dataclass
@@ -44,9 +44,9 @@ class RegisterPlayer(Command):
 
 
 
-class FederationCommandHandler(MessageHandler):
-    def __init__(self, federation_repo : IRepository[Federation], message_broker : IMessageBroker) -> None:
-        super().__init__(message_broker)
+class FederationCommandHandler(CommandHandler):
+    def __init__(self, federation_repo : IRepository[Federation], auth_service : IAuthService, message_broker : IMessageBroker) -> None:
+        super().__init__(auth_service, message_broker)
         self.__federation_repo = federation_repo
 
     @dispatch(RegisterClub)

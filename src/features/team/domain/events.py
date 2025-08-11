@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from src.common.enums import Gender, TeamCategory
 from src.common.eventsourcing import IEvent
-from src.features.team.domain.models.entities import Player
+from src.features.team.domain.models.entities import TeamPlayer
 
 
 @dataclass
@@ -17,8 +17,10 @@ class TeamCreated(IEvent):
 
 @dataclass
 class PlayerAdded(IEvent):
-    player: Player
+    team_id: str
+    player: TeamPlayer
 
 @dataclass
 class PlayerRemoved(IEvent):
-    license_id: str
+    team_id: str
+    player_id: str

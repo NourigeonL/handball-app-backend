@@ -1,8 +1,6 @@
 
-
-
-from src.common.dtos import ClubListDTO
 from src.read_facades.db import InMemDB
+from src.read_facades.dtos import ClubListDTO
 
 
 class PublicReadFacade:
@@ -12,5 +10,5 @@ class PublicReadFacade:
 
     async def get_club_list(self) -> list[ClubListDTO]:
         with self.in_mem_db.get_db() as db:
-            return db.club_list
+            return [ClubListDTO(registration_number=club.registration_number, name=club.name) for club in db.club_list.values()]
 

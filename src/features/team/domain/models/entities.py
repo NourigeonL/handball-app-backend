@@ -5,7 +5,7 @@ from datetime import datetime
 from src.common.enums import Gender, LicenseType, PlayerPosition
 
 @dataclass
-class Player:
+class TeamPlayer:
     license_id : str
     date_of_birth : datetime
     gender : Gender

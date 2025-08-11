@@ -5,7 +5,7 @@ import unittest
 from src.common.enums import Gender, LicenseType, PlayerPosition, TeamCategory
 from src.common.eventsourcing.exceptions import InvalidOperationError
 from src.features.team.domain.events import PlayerAdded, PlayerRemoved
-from src.features.team.domain.models.entities import Player
+from src.features.team.domain.models.entities import TeamPlayer
 from src.features.team.domain.models.team import Team, TeamInit
 
 class TestTeamAggregate(unittest.TestCase):
@@ -17,8 +17,8 @@ class TestTeamAggregate(unittest.TestCase):
         
         team_m = Team(TeamInit(team_id="1", category=TeamCategory.U11, club_id="1", name="Team 1", gender=Gender.M, season=2025))
         team_f = Team(TeamInit(team_id="1", category=TeamCategory.U11, club_id="1", name="Team 1", gender=Gender.F, season=2025))
-        player_f = Player(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.F, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)
-        player_m = Player(license_id="2", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)
+        player_f = TeamPlayer(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.F, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)
+        player_m = TeamPlayer(license_id="2", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)
 
         with pytest.raises(InvalidOperationError):
             team_f.add_player(player_m)
@@ -32,7 +32,7 @@ class TestTeamAggregate(unittest.TestCase):
             mock_get_authorized_categories.return_value = {TeamCategory.U11}
 
             team = Team(TeamInit(team_id="1", category=TeamCategory.U15, club_id="1", name="Team 1", gender=Gender.M, season=2025))
-            player = Player(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)
+            player = TeamPlayer(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)
 
             with pytest.raises(InvalidOperationError):
                 team.add_player(player)
@@ -40,20 +40,20 @@ class TestTeamAggregate(unittest.TestCase):
     def test_cannot_add_player_if_already_exists(self) -> None:
         license_id = "1"
         team = Team(TeamInit(team_id="1", category=TeamCategory.U11, club_id="1", name="Team 1", gender=Gender.M, season=2025))
-        team.loads_from_history([PlayerAdded(player=Player(license_id=license_id, date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A))])
+        team.loads_from_history([PlayerAdded(team_id="1", player=TeamPlayer(license_id=license_id, date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A))])
         
         with pytest.raises(InvalidOperationError):
-            team.add_player(Player(license_id=license_id, date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A))
+            team.add_player(TeamPlayer(license_id=license_id, date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A))
 
     def test_player_should_be_added_to_team(self) -> None:
         team = Team(TeamInit(team_id="1", category=TeamCategory.U11, club_id="1", name="Team 1", gender=Gender.M, season=2025))
-        player = Player(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)
+        player = TeamPlayer(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)
         team.mark_changes_as_committed()
         team.add_player(player)
         assert team.players == {player.license_id: player}
         events = team.get_uncommitted_changes()
         assert len(events) == 1
-        assert events[0] == PlayerAdded(player=player)
+        assert events[0] == PlayerAdded(team_id="1", player=player)
 
     def test_cannot_remove_player_if_not_exists(self) -> None:
         team = Team(TeamInit(team_id="1", category=TeamCategory.U11, club_id="1", name="Team 1", gender=Gender.M, season=2025))
@@ -62,52 +62,52 @@ class TestTeamAggregate(unittest.TestCase):
 
     def test_player_should_be_removed_from_team(self) -> None:
         team = Team(TeamInit(team_id="1", category=TeamCategory.U11, club_id="1", name="Team 1", gender=Gender.M, season=2025))
-        player = Player(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)
-        team.loads_from_history([PlayerAdded(player=player)])
+        player = TeamPlayer(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)
+        team.loads_from_history([PlayerAdded(team_id="1", player=player)])
         team.remove_player(player.license_id)
         assert team.players == {}
         events = team.get_uncommitted_changes()
         assert len(events) == 1
-        assert events[0] == PlayerRemoved(license_id=player.license_id)
+        assert events[0] == PlayerRemoved(team_id="1", player_id=player.license_id)
 
     def test_team_should_be_invalid_if_it_has_more_than_12_players(self) -> None:
         team = Team(TeamInit(team_id="1", category=TeamCategory.U11, club_id="1", name="Team 1", gender=Gender.M, season=2025))
-        team.loads_from_history([PlayerAdded(player=Player(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="2", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.CENTER_BACK, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="3", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.LEFT_BACK, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="4", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.RIGHT_BACK, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="5", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.PIVOT, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="6", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.LEFT_WINGER, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="7", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.RIGHT_WINGER, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="8", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="9", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="10", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="11", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="12", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="13", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A))])
+        team.loads_from_history([PlayerAdded(team_id="1", player=TeamPlayer(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="2", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.CENTER_BACK, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="3", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.LEFT_BACK, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="4", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.RIGHT_BACK, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="5", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.PIVOT, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="6", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.LEFT_WINGER, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="7", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.RIGHT_WINGER, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="8", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="9", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="10", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="11", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="12", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="13", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A))])
         is_valid, errors = team.validate_team()
         assert not is_valid
 
     def test_team_should_be_invalid_if_right_winger_is_missing(self) -> None:
         team = Team(TeamInit(team_id="1", category=TeamCategory.U11, club_id="1", name="Team 1", gender=Gender.M, season=2025))
-        team.loads_from_history([PlayerAdded(player=Player(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="2", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.CENTER_BACK, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="3", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.LEFT_BACK, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="4", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.RIGHT_BACK, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="5", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.PIVOT, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="6", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.LEFT_WINGER, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="7", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.LEFT_WINGER, license_type=LicenseType.A))])
+        team.loads_from_history([PlayerAdded(team_id="1", player=TeamPlayer(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="2", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.CENTER_BACK, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="3", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.LEFT_BACK, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="4", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.RIGHT_BACK, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="5", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.PIVOT, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="6", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.LEFT_WINGER, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="7", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.LEFT_WINGER, license_type=LicenseType.A))])
         is_valid, errors = team.validate_team()
         assert not is_valid
 
     def test_team_should_be_invalid_if_left_winger_is_missing(self) -> None:
         team = Team(TeamInit(team_id="1", category=TeamCategory.U11, club_id="1", name="Team 1", gender=Gender.M, season=2025))
-        team.loads_from_history([PlayerAdded(player=Player(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="2", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.CENTER_BACK, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="3", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.LEFT_BACK, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="4", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.RIGHT_BACK, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="5", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.PIVOT, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="6", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.RIGHT_WINGER, license_type=LicenseType.A)),
-        PlayerAdded(player=Player(license_id="7", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.RIGHT_WINGER, license_type=LicenseType.A))])
+        team.loads_from_history([PlayerAdded(team_id="1", player=TeamPlayer(license_id="1", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.GOAL_KEEPER, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="2", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.CENTER_BACK, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="3", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.LEFT_BACK, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="4", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.RIGHT_BACK, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="5", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.PIVOT, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="6", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.RIGHT_WINGER, license_type=LicenseType.A)),
+        PlayerAdded(team_id="1", player=TeamPlayer(license_id="7", date_of_birth=datetime(2015, 1, 1), gender=Gender.M, position=PlayerPosition.RIGHT_WINGER, license_type=LicenseType.A))])
         is_valid, errors = team.validate_team()
         assert not is_valid

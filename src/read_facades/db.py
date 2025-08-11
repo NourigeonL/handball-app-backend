@@ -8,11 +8,13 @@ from multipledispatch import dispatch
 from src.common.dtos import ClubListDTO
 from src.common.eventsourcing.event import IEvent
 from src.common.eventsourcing.event_stores import get_event_class
-from src.features.federation.aggregate import ClubRegistered
+from src.features.club.domain.events import ClubCreated, CollectiveCreated, PlayerLicenseRenewed, PlayerRegisteredToClub, PlayerAssignedToCollective
+from src.features.club.domain.models.club import Club
+from src.features.club.domain.models.collective import Collective
 
 class InMemDB:
 
-    club_list : list[ClubListDTO] = []
+    club_list : dict[str, Club] = {}
     def __init__(self, event_store_file_path: str):
         self.event_store_file_path = event_store_file_path
         self.last_modified = os.path.getmtime(event_store_file_path)
@@ -29,12 +31,15 @@ class InMemDB:
                         event_data = event_class.from_dict(json.loads(event["event_data"]))
                         self._apply(event_data)
                         
-
-
-    @dispatch(ClubRegistered)
-    def _apply(self, e : ClubRegistered) -> None:
-        self.club_list.append(ClubListDTO(registration_number=e.registration_number, name=e.name))
         
+    @dispatch(ClubCreated)
+    def _apply(self, e : ClubCreated) -> None:
+        self.club_list[e.registration_number] = Club(registration_number=e.registration_number, owner_id=e.owner_id, name=e.name)
+
+    @dispatch(CollectiveCreated)
+    def _apply(self, e : CollectiveCreated) -> None:
+        self.club_list[e.club_id].collectives[e.collective_id] = Collective(collective_id=e.collective_id)
+
 
     @dispatch(IEvent)
     def _apply(self, e : IEvent) -> None:

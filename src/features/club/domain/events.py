@@ -10,32 +10,40 @@ class ClubCreated(IEvent):
     registration_number : str
     owner_id : str
     name : str
-
+    user_id : str
 @dataclass
 class PlayerRegisteredToClub(IEvent):
     club_id : str
     player_id : str
     license_type : str
     season : str
-
+    user_id : str
 @dataclass
 class PlayerLicenseRenewed(IEvent):
     club_id : str
     player_id : str
     license_type : str
     season : str
-
+    user_id : str
 @dataclass
 class CollectiveCreated(IEvent):
     club_id : str
     collective_id : str
-
+    collective_name : str
+    user_id : str
 @dataclass
 class PlayerAssignedToCollective(IEvent):
     club_id : str
     player_id : str
     collective_id : str
-
+    user_id : str
+@dataclass
+class PlayerUnassignedFromCollective(IEvent):
+    club_id : str
+    player_id : str
+    collective_id : str
+    user_id : str
+    
 @dataclass
 class TrainingPlanCreated(IEvent):
     club_id : str
@@ -45,3 +53,4 @@ class TrainingPlanCreated(IEvent):
     end_time : str
     skip_public_holidays : bool
     assigned_collectives : list[str]
+    user_id : str

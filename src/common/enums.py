@@ -33,3 +33,9 @@ class PlayerPosition(str,Enum):
     CENTER_BACK = "CB"
     RIGHT_BACK = "RB"
     PIVOT = "P"
+
+class TrainingOccurencePlayerStatus(str,Enum):
+    PRESENT = "PRESENT"
+    ABSENT = "ABSENT"
+    LATE = "LATE"
+    ABSENT_WITHOUT_REASON = "ABSENT_WITHOUT_REASON"

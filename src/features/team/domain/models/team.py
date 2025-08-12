@@ -28,12 +28,12 @@ class Team(AggregateRoot):
     def to_stream_id(id: str) -> str:
         return f"team-{id}"
 
-    def __init__(self, init: TeamInit | None = None):
+    def __init__(self, init: TeamInit | None = None, user_id: str | None = None):
         super().__init__()
         self.players : dict[str, TeamPlayer] = {}
         self.nb_players_by_position : dict[PlayerPosition, int] = {}
         if init:
-            self._apply_change(TeamCreated(team_id=init.team_id, category=init.category, club_id=init.club_id, name=init.name, gender=init.gender, season=init.season or get_current_season()))
+            self._apply_change(TeamCreated(team_id=init.team_id, category=init.category, club_id=init.club_id, name=init.name, gender=init.gender, season=init.season or get_current_season(), user_id=user_id))
 
     def validate_team(self) -> tuple[bool, list[str]]:
         errors = []
@@ -44,7 +44,7 @@ class Team(AggregateRoot):
                 errors.append(f"Team must have at least 1 player for position {position}")
         return len(errors) == 0, errors
 
-    def add_player(self, player: TeamPlayer) -> None:
+    def add_player(self, player: TeamPlayer, user_id: str) -> None:
         if self.category not in get_authorized_categories(self.season, player.date_of_birth):
             raise InvalidOperationError(f"Player {player.license_id} is not allowed to play in this category")
         if self.players.get(player.license_id):
@@ -52,12 +52,12 @@ class Team(AggregateRoot):
         if player.gender != self.gender:
             raise InvalidOperationError(f"Player {player.license_id} is not of the same gender as the team")
         
-        self._apply_change(PlayerAdded(team_id=self.__id, player=player))
+        self._apply_change(PlayerAdded(team_id=self.__id, player=player, user_id=user_id))
 
-    def remove_player(self, license_id: str) -> None:
+    def remove_player(self, license_id: str, user_id: str) -> None:
         if not self.players.get(license_id):
             raise InvalidOperationError(f"Player with license id {license_id} does not exist")
-        self._apply_change(PlayerRemoved(team_id=self.__id, player_id=license_id))
+        self._apply_change(PlayerRemoved(team_id=self.__id, player_id=license_id, user_id=user_id))
 
 
     @dispatch(TeamCreated)

@@ -5,9 +5,10 @@ from src.common.eventsourcing.exceptions import InvalidOperationError
 
 class Collective:
 
-    def __init__(self, collective_id : str):
+    def __init__(self, collective_id : str, collective_name : str):
         self.collective_id = collective_id
-        self.players = []
+        self.collective_name = collective_name
+        self.players : list[str] = []
 
     def add_player(self, player_id : str) -> None:
         if player_id in self.players:

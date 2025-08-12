@@ -52,7 +52,7 @@ class IMessageBroker(IEventPublisher, ICommandSender):
     pass
 
 class CommandHandler(abc.ABC):
-    def __init__(self, auth_service : "IAuthService", message_broker : "IMessageBroker") -> None:
+    def __init__(self, auth_service : "IAuthService", message_broker : "IEventPublisher") -> None:
         self._auth_service = auth_service
         self._message_broker = message_broker
 

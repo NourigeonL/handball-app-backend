@@ -8,6 +8,7 @@ from src.features.team.domain.models.entities import TeamPlayer
 
 @dataclass
 class TeamCreated(IEvent):
+    user_id: str
     team_id: str
     category: TeamCategory
     club_id: str
@@ -17,10 +18,12 @@ class TeamCreated(IEvent):
 
 @dataclass
 class PlayerAdded(IEvent):
+    user_id: str
     team_id: str
     player: TeamPlayer
 
 @dataclass
 class PlayerRemoved(IEvent):
+    user_id: str
     team_id: str
     player_id: str

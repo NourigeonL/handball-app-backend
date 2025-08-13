@@ -2,10 +2,11 @@ from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse
 from src.common.exceptions import GenericError
 from src.dependencies import lifespan
-from src.routers.club_router import router as club_router
-from src.routers.auth_router import router as auth_router
-from src.features.federation.router import router as federation_router
-from src.main_router import router as main_router
+from src.infrastructure.routers.club_router import router as club_router
+from src.infrastructure.routers.auth_router import router as auth_router
+from src.infrastructure.routers.main_router import router as main_router
+from src.infrastructure.routers.player_router import router as player_router
+from src.infrastructure.routers.collective_router import router as collective_router
 from starlette.middleware.sessions import SessionMiddleware
 from src.settings import settings
 
@@ -16,7 +17,8 @@ def create_app() -> FastAPI:
     app.include_router(club_router)
     app.include_router(auth_router)
     app.include_router(main_router)
-    app.include_router(federation_router)
+    app.include_router(player_router)
+    app.include_router(collective_router)
     return app
 
 

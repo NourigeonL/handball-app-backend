@@ -1,1 +1,0 @@
-from .club_managment import ClubManagment

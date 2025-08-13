@@ -1,6 +1,6 @@
 from enum import Enum
 
-class LicenseType(Enum):
+class LicenseType(str, Enum):
     A = "A"
     B = "B"
     C = "C"

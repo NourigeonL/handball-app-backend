@@ -1,4 +1,4 @@
-from dataclasses import dataclass, is_dataclass
+from dataclasses import dataclass, fields, is_dataclass
 from typing import get_args, get_origin, TypeVar
 
 def __get_subclass(cls : type, args : tuple, origin : type, key : str, value : any) -> type:
@@ -78,7 +78,7 @@ def from_dict(cls : type, values : any) -> object:
     origin = get_origin(cls)
 
     if is_dataclass(cls) or issubclass(cls,Data):
-        members = [key for key, values in cls.__annotations__.items()]
+        members = [field.name for field in fields(cls)]
         tmp = {}
         for key, value in values.items():
             if key in members:
@@ -101,7 +101,6 @@ def from_dict(cls : type, values : any) -> object:
             new_dict[key] = new_list
         else:
             new_dict[key] = value
-
     return cls(**new_dict)
 
 

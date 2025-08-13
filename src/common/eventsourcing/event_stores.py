@@ -2,6 +2,8 @@ import abc
 import os
 import sys
 import json
+
+from src.read_facades.interface import IReadFacade
 from .event import IEvent
 from .exceptions import ConcurrencyError
 
@@ -86,18 +88,23 @@ class InMemEventStore(IEventStore):
         return [get_event_class(desc.event_type).from_dict(json.loads(desc.event_data)) for desc in event_descriptors]
 
 class JsonFileEventStore(IEventStore):
-    def __init__(self, file_path : str) -> None:
+    def __init__(self, file_path : str, read_facade_list : list[IReadFacade]) -> None:
         self.file_path = file_path
         self.current : dict[str, list[dict]] = {}
+        self.read_facade_list = read_facade_list
         if not os.path.exists(self.file_path):
             with open(self.file_path, "w") as f:
                 json.dump({}, f)
         self.load()
-
     def load(self) -> None:
         if os.path.exists(self.file_path):
             with open(self.file_path, "r") as f:
                 self.current = json.load(f)
+        for event_descriptor in self.current.values():
+            for event_descriptor in event_descriptor:
+                for read_facade in self.read_facade_list:
+                    event_data = json.loads(event_descriptor["event_data"])
+                    read_facade.update_read_model(get_event_class(event_descriptor["event_type"]).from_dict(event_data))
 
     async def save_events(self, aggregate_id: str, events: list[IEvent], expected_version: int) -> None:
         event_descriptors = self.current.get(aggregate_id)
@@ -114,7 +121,10 @@ class JsonFileEventStore(IEventStore):
 
         for event in events:
             i += 1
-            event_descriptors.append(EventDescriptor(aggregate_id, event.type,json.dumps(event.to_dict()), i).to_dict())
+            event_descriptor = EventDescriptor(aggregate_id, event.type,json.dumps(event.to_dict()), i).to_dict()
+            event_descriptors.append(event_descriptor)
+            for read_facade in self.read_facade_list:
+                read_facade.update_read_model(event)
 
         with open(self.file_path, "w") as f:
             json.dump(self.current, f)

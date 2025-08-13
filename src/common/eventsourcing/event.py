@@ -6,12 +6,14 @@ from src.common.guid import guid
 from .encryption import Data
 
 class EventMeta(abc.ABCMeta):
+    
     @property
     def type(cls) -> str:
         return cls.__name__
 
 @dataclass
 class IEvent(Data, metaclass=EventMeta):
+    actor_id : str
     def __post_init__(self):
         self.event_id = guid()
         self.triggered_at = datetime.now(timezone.utc).isoformat()

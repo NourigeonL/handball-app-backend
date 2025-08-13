@@ -24,7 +24,7 @@ class IntegrationEvent(Message, metaclass=abc.ABCMeta):
 
 @dataclass
 class Command(Message, metaclass=abc.ABCMeta):
-    user_id : str
+    actor_id : str
 
     def __post_init__(self) -> None:
         self.command_id = guid()

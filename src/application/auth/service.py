@@ -9,9 +9,21 @@ from src.domains.club.model import Club
 from src.domains.user.model import User, UserCreate
 from src.infrastructure.storages.auth_repository import AuthRepository
 from src.common.guid import guid
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from google.auth import exceptions as google_exceptions
+from src.settings import settings
+from datetime import datetime
+from typing import List
+from src.common.exceptions import GenericError
 
 
 class AuthService(IAuthService):
+    """
+    Unified service for authentication and authorization
+    Handles user authentication, Google auth, and club access control
+    """
+    
     def __init__(self, auth_repository: AuthRepository, user_repo: IEventStoreRepository[User], club_repo: IEventStoreRepository[Club]):
         self._auth_repository = auth_repository
         self._user_repo = user_repo
@@ -19,6 +31,10 @@ class AuthService(IAuthService):
 
     async def _condition_are_met(self, command: Command) -> bool:
         return True
+
+    # ============================================================================
+    # USER AUTHENTICATION METHODS
+    # ============================================================================
 
     async def sign_up_user_from_google_account(self, google_account_id: str, email: str, first_name: str | None = None, last_name: str | None = None, name: str | None = None) -> DBUser:
         db_user = await self._auth_repository.get_user_by_google_account_id(google_account_id)
@@ -45,3 +61,163 @@ class AuthService(IAuthService):
             
         
         return db_user
+
+    async def verify_google_id_token(self, id_token_string: str) -> dict:
+        """
+        Verify Google ID token from frontend and return user information
+        """
+        try:
+            # Verify the token
+            idinfo = id_token.verify_oauth2_token(
+                id_token_string, 
+                google_requests.Request(), 
+                settings.GOOGLE_AUTH_CLIENT_ID
+            )
+            
+            # Verify the token was issued by Google
+            if idinfo['iss'] not in ['https://accounts.google.com', 'accounts.google.com']:
+                raise ValueError('Wrong issuer.')
+            
+            # Verify the token is not expired
+            if idinfo['exp'] < datetime.now().timestamp():
+                raise ValueError('Token expired.')
+            
+            # Extract user information
+            user_info = {
+                'google_account_id': idinfo['sub'],
+                'email': idinfo['email'],
+                'first_name': idinfo.get('given_name'),
+                'last_name': idinfo.get('family_name'),
+                'name': idinfo.get('name'),
+                'picture': idinfo.get('picture')
+            }
+            
+            return user_info
+            
+        except google_exceptions.GoogleAuthError as e:
+            raise ValueError(f'Google authentication error: {e}')
+        except Exception as e:
+            raise ValueError(f'Token verification failed: {e}')
+
+    async def authenticate_user_from_frontend(self, id_token_string: str) -> DBUser:
+        """
+        Authenticate user from frontend Google ID token
+        """
+        # Verify the token and get user info
+        user_info = await self.verify_google_id_token(id_token_string)
+        
+        # Sign up or get existing user
+        user = await self.sign_up_user_from_google_account(
+            google_account_id=user_info['google_account_id'],
+            email=user_info['email'],
+            first_name=user_info['first_name'],
+            last_name=user_info['last_name'],
+            name=user_info['name']
+        )
+        
+        return user
+
+    # ============================================================================
+    # CLUB AUTHORIZATION METHODS
+    # ============================================================================
+
+    async def can_access_club(self, user_id: str, club_id: str) -> bool:
+        """
+        Check if a user can access a club (view, read operations)
+        Uses domain model directly for immediate consistency
+        """
+        try:
+            club = await self._club_repo.get_by_id(club_id)
+            return self._has_club_access(user_id, club)
+        except Exception:
+            # Club doesn't exist or other error - no access
+            return False
+    
+    async def can_manage_club(self, user_id: str, club_id: str) -> bool:
+        """
+        Check if a user can manage a club (create, update, delete operations)
+        Uses domain model directly for immediate consistency
+        """
+        try:
+            club = await self._club_repo.get_by_id(club_id)
+            return self._has_club_management_access(user_id, club)
+        except Exception:
+            # Club doesn't exist or other error - no management access
+            return False
+    
+    async def can_create_club(self, user_id: str) -> bool:
+        """
+        Check if a user can create a new club
+        """
+        # For now, any authenticated user can create a club
+        # You can add business logic here (e.g., user limits, subscription checks)
+        return True
+    
+    async def get_user_clubs(self, user_id: str) -> List[str]:
+        """
+        Get all club IDs that a user has access to
+        Uses domain models directly for immediate consistency
+        """
+        try:
+            # Get all clubs and filter by access
+            # This is a simple implementation - you might want to optimize this
+            clubs = await self._club_repo.get_all()
+            user_clubs = []
+            
+            for club in clubs:
+                if self._has_club_access(user_id, club):
+                    user_clubs.append(club.id)
+            
+            return user_clubs
+        except Exception:
+            return []
+    
+    def _has_club_access(self, user_id: str, club: Club) -> bool:
+        """
+        Check if user has basic access to club (view operations)
+        """
+        # Owner has access
+        if club.owner_id == user_id:
+            return True
+        
+        # Coaches have access
+        if user_id in club.coaches:
+            return True
+        
+        # You can add more access rules here (e.g., club members, admins)
+        
+        return False
+    
+    def _has_club_management_access(self, user_id: str, club: Club) -> bool:
+        """
+        Check if user has management access to club (modify operations)
+        """
+        # Only owner can manage the club
+        if club.owner_id == user_id:
+            return True
+        
+        # You can add more management roles here (e.g., club admins, managers)
+        
+        return False
+    
+    async def require_club_access(self, user_id: str, club_id: str) -> None:
+        """
+        Require club access - raises exception if access denied
+        """
+        if not await self.can_access_club(user_id, club_id):
+            raise GenericError(
+                status_code=403,
+                detail=f"Access denied to club {club_id}",
+                error_code="CLUB_ACCESS_DENIED"
+            )
+    
+    async def require_club_management(self, user_id: str, club_id: str) -> None:
+        """
+        Require club management access - raises exception if access denied
+        """
+        if not await self.can_manage_club(user_id, club_id):
+            raise GenericError(
+                status_code=403,
+                detail=f"Management access denied to club {club_id}",
+                error_code="CLUB_MANAGEMENT_DENIED"
+            )

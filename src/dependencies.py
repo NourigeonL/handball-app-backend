@@ -1,7 +1,8 @@
 
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request, status, Depends
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from src.application.auth.service import AuthService
 from src.application.collective.service import CollectiveService
@@ -24,12 +25,12 @@ from src.common.cqrs.in_mem_bus import InMemBus
 from src.application.club.service import ClubService
 sessions = {}
 
-
+# API Key header for Bearer token authentication
+api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
 class UserSession(BaseModel):
     user_id: str
     user_email: str
-    club_id: str | None = None
 
 
 async def get_current_user(request: Request) -> UserSession:
@@ -76,6 +77,75 @@ async def get_current_user(request: Request) -> UserSession:
         raise HTTPException(status_code=401, detail="Not Authenticated")
 
 
+async def get_current_user_from_token(api_key: str = Depends(api_key_header)) -> UserSession:
+    """
+    Get current user from Bearer token (for frontend authentication)
+    Automatically handles both "Bearer <token>" and "<token>" formats
+    """
+    # Debug logging
+    app_logger.info(f"Received API key header: {api_key}")
+    
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header is required. Just paste your JWT token in the authorization field.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Auto-add "Bearer " prefix if not present
+    if not api_key.startswith("Bearer "):
+        # Check if it looks like a JWT token (contains dots and is reasonably long)
+        if "." in api_key and len(api_key) > 50:
+            # User just pasted the token, add "Bearer " prefix automatically
+            api_key = f"Bearer {api_key}"
+            app_logger.info(f"Auto-added 'Bearer ' prefix. Final header: {api_key}")
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token format. Please paste a valid JWT token.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    
+    # Extract token (remove "Bearer " prefix)
+    token = api_key[7:]  # More robust than split()[1]
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is missing from authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        user_id: str | None = payload.get("user_id")
+        user_email: str | None = payload.get("email")
+        
+        if user_id is None or user_email is None:
+            raise credentials_exception
+
+        app_logger.info(f"Successfully authenticated user: {user_id} ({user_email})")
+        return UserSession(user_id=user_id, user_email=user_email)
+
+    except ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except JWTError:
+        raise credentials_exception
+    except Exception as e:
+        app_logger.error(f"Exception in token validation: {e}")
+        raise HTTPException(status_code=401, detail="Not Authenticated")
+
+
 async def init_message_broker(message_broker : InMemBus, event_store : IEventStore) -> IEventPublisher:
     return message_broker
 
@@ -91,6 +161,7 @@ async def lifespan(app : FastAPI)-> AsyncGenerator[Any, None]:
     auth_repo = AuthRepository("./auth_repository.json")
     user_repo = EventStoreRepository(event_store, User)
     auth_service = AuthService(auth_repo, user_repo, club_repo)
+    
     service_locator.club_service = ClubService(auth_service, service_locator.event_publisher, club_repo)
     player_repo = EventStoreRepository(event_store, Player)
     service_locator.player_service = PlayerService(auth_service, service_locator.event_publisher, player_repo, club_repo)

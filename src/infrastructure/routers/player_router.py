@@ -1,10 +1,10 @@
 from datetime import date
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from src.application.player.commands import RegisterPlayerCommand
 from src.common.enums import Gender, LicenseType
-from src.dependencies import UserSession, get_current_user
+from src.dependencies import UserSession, get_current_user, get_current_user_from_token
 from src.service_locator import service_locator
 
 router = APIRouter(prefix="/players", tags=["players"])
@@ -19,7 +19,17 @@ class RegisterPlayerRequest(BaseModel):
     license_type: LicenseType | None = None
 
 @router.post("/register")
-async def register_player(register_player_request: RegisterPlayerRequest, current_user: UserSession = Depends(get_current_user)):
+async def register_player(
+    register_player_request: RegisterPlayerRequest, 
+    current_user: UserSession = Depends(get_current_user_from_token)
+):
+    """
+    Register a new player - requires management access to the club
+    """
+    # Simple check: user is authenticated and can manage the club
+    if not await service_locator.auth_service.can_manage_club(current_user.user_id, register_player_request.club_id):
+        raise HTTPException(status_code=403, detail=f"Management access denied to club {register_player_request.club_id}")
+    
     await service_locator.player_service.handle(RegisterPlayerCommand(
         actor_id=current_user.user_id,
         club_id=register_player_request.club_id,

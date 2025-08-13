@@ -17,6 +17,8 @@ class PublicReadFacade(IReadFacade):
     @dispatch(ClubCreated)
     def _apply(self, event: ClubCreated) -> None:
         self.club_list[event.club_id] = ClubListDTO(club_id=event.club_id, name=event.name, registration_number=event.registration_number)
+        self.user_clubs[event.owner_id].add(event.club_id)
+        self.club_dict[event.club_id] = ClubDTO(club_id=event.club_id, name=event.name, registration_number=event.registration_number, owner_id=event.owner_id)
 
     @dispatch(PlayerCreated)
     def _apply(self, event: PlayerCreated) -> None:
@@ -42,5 +44,8 @@ class PublicReadFacade(IReadFacade):
     async def get_club(self, club_id: str) -> ClubDTO | None:
         return self.club_dict.get(club_id)
 
-    async def get_user_clubs(self, user_id: str) -> list[str]:
-        return self.user_clubs.get(user_id, [])
+    async def get_user_clubs(self, user_id: str) -> list[ClubListDTO]:
+        res = []
+        for club_id in self.user_clubs.get(user_id, []):
+            res.append(self.club_list[club_id])
+        return res

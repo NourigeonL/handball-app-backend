@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta, timezone
-from http.client import HTTPException
+from fastapi.exceptions import HTTPException
 from fastapi import APIRouter, Depends, Request, Response
-from src.dependencies import UserSession, get_current_user
+from src.dependencies import UserSession, get_current_user, get_current_user_from_token
 from src.service_locator import service_locator
 from fastapi.responses import JSONResponse, RedirectResponse
 from src.settings import settings
 from authlib.integrations.starlette_client import OAuth
 from jose import jwt
+from pydantic import BaseModel
 
 oauth = OAuth()
 oauth.register(
@@ -23,6 +24,9 @@ oauth.register(
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+class FrontendAuthRequest(BaseModel):
+    id_token: str
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
@@ -62,7 +66,7 @@ async def auth(request: Request):
     user = await service_locator.auth_service.sign_up_user_from_google_account(google_account_id=user_id, email=user_email, first_name=first_name, last_name=last_name, name=name)
     # Create JWT token
     access_token_expires = timedelta(seconds=expires_in)
-    access_token = create_access_token(data={"user_id": user.user_id, "email": user_email, "first_name": first_name, "last_name": last_name, "name": name, "picture": picture, "club_ids": club_ids}, expires_delta=access_token_expires)
+    access_token = create_access_token(data={"user_id": user.user_id, "email": user_email, "first_name": first_name, "last_name": last_name, "name": name, "picture": picture}, expires_delta=access_token_expires)
 
     redirect_url = request.session.pop("login_redirect", "")
     response = RedirectResponse(redirect_url)
@@ -74,3 +78,53 @@ async def auth(request: Request):
         samesite="lax",  # Set the SameSite attribute to None
     )
     return response
+
+@router.post("/frontend")
+async def frontend_auth(request: FrontendAuthRequest):
+    """
+    Authenticate user from frontend using Google ID token
+    """
+    try:
+        # Authenticate user using the Google ID token
+        user = await service_locator.auth_service.authenticate_user_from_frontend(request.id_token)
+        
+        # Create JWT token
+        access_token_expires = timedelta(minutes=settings.JWT_EXPIRATION_TIME)
+        access_token = create_access_token(
+            data={
+                "user_id": user.user_id, 
+                "email": user.email
+            }, 
+            expires_delta=access_token_expires
+        )
+        
+        return JSONResponse(content={
+            "access_token": access_token,
+            "token_type": "bearer",
+            "expires_in": settings.JWT_EXPIRATION_TIME * 60,  # Convert to seconds
+            "user": {
+                "user_id": user.user_id,
+                "email": user.email,
+                "google_account_id": user.google_account_id
+            }
+        })
+        
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Authentication failed")
+
+@router.get("/test-token")
+async def test_bearer_token(current_user: UserSession = Depends(get_current_user_from_token)):
+    """
+    Test endpoint to verify Bearer token authentication is working
+    Use this to test your Authorization header: 'Authorization: Bearer <your_token>'
+    """
+    return {
+        "message": "Bearer token authentication successful!",
+        "user": {
+            "user_id": current_user.user_id,
+            "email": current_user.user_email
+        },
+        "timestamp": datetime.now().isoformat()
+    }

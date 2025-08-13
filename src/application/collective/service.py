@@ -2,13 +2,13 @@ from multipledispatch import dispatch
 from src.application.collective.commands import AddPlayerToCollectiveCommand, CreateCollectiveCommand, RemovePlayerFromCollectiveCommand
 from src.common.cqrs.messages import CommandHandler, IAuthService, IEventPublisher
 from src.common.eventsourcing.exceptions import InvalidOperationError
-from src.common.eventsourcing.repositories import IRepository
+from src.common.eventsourcing.repositories import IEventStoreRepository
 from src.domains.club.model import Club
 from src.domains.collective.model import Collective, CollectiveCreateData
 
 class CollectiveService(CommandHandler):
 
-    def __init__(self, auth_service: IAuthService, event_publisher: IEventPublisher, collective_repo: IRepository[Collective], club_repo: IRepository[Club]):
+    def __init__(self, auth_service: IAuthService, event_publisher: IEventPublisher, collective_repo: IEventStoreRepository[Collective], club_repo: IEventStoreRepository[Club]):
         super().__init__(auth_service, event_publisher)
         self._collective_repo = collective_repo
         self._club_repo = club_repo

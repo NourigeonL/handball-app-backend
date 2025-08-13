@@ -12,6 +12,8 @@ from src.common.eventsourcing.repositories import EventStoreRepository
 from src.domains.club.model import Club
 from src.domains.collective.model import Collective
 from src.domains.player.model import Player
+from src.domains.user.model import User
+from src.infrastructure.storages.auth_repository import AuthRepository
 from src.read_facades.club_read_facade import ClubReadFacade
 from src.read_facades.public_read_facade import PublicReadFacade
 from src.service_locator import service_locator
@@ -27,6 +29,7 @@ sessions = {}
 class UserSession(BaseModel):
     user_id: str
     user_email: str
+    club_id: str | None = None
 
 
 async def get_current_user(request: Request) -> UserSession:
@@ -49,9 +52,8 @@ async def get_current_user(request: Request) -> UserSession:
     try:
         payload = jwt.decode(access_token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         print(payload)
-        user_id: str = payload.get("sub")
-        user_email: str = payload.get("email")
-
+        user_id: str | None = payload.get("user_id")
+        user_email: str | None = payload.get("email")
         if user_id is None or user_email is None:
             raise credentials_exception
 
@@ -86,12 +88,15 @@ async def lifespan(app : FastAPI)-> AsyncGenerator[Any, None]:
     service_locator.club_read_facade = club_read_facade
     service_locator.event_publisher = await init_message_broker(InMemBus(), event_store)
     club_repo = EventStoreRepository(event_store, Club)
-    auth_service = AuthService()
+    auth_repo = AuthRepository("./auth_repository.json")
+    user_repo = EventStoreRepository(event_store, User)
+    auth_service = AuthService(auth_repo, user_repo, club_repo)
     service_locator.club_service = ClubService(auth_service, service_locator.event_publisher, club_repo)
     player_repo = EventStoreRepository(event_store, Player)
     service_locator.player_service = PlayerService(auth_service, service_locator.event_publisher, player_repo, club_repo)
     collective_repo = EventStoreRepository(event_store, Collective)
     service_locator.collective_service = CollectiveService(auth_service, service_locator.event_publisher, collective_repo, club_repo)
+    service_locator.auth_service = auth_service
     yield
     
     

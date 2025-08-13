@@ -1,5 +1,6 @@
 
 
+from src.application.auth.service import AuthService
 from src.application.club.service import ClubService
 from src.application.collective.service import CollectiveService
 from src.application.player.service import PlayerService
@@ -57,5 +58,13 @@ class ServiceLocator:
     @collective_service.setter
     def collective_service(self, collective_service : CollectiveService) -> None:
         self.__global["collective_service"] = collective_service
+
+    @property
+    def auth_service(self) -> AuthService:
+        return self.__global["auth_service"]
+    
+    @auth_service.setter
+    def auth_service(self, auth_service : AuthService) -> None:
+        self.__global["auth_service"] = auth_service
 
 service_locator = ServiceLocator()

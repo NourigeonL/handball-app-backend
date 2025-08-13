@@ -24,16 +24,16 @@ async def create_club(club_create_request: ClubCreateRequest, current_user: User
 
 @router.get("")
 async def get_club_list(current_user: UserSession = Depends(get_current_user)):
-    return service_locator.public_read_facade.get_club_list()
+    return await service_locator.public_read_facade.get_club_list()
 
 @router.get("/{club_id}/players")
 async def get_club_players(club_id: str, current_user: UserSession = Depends(get_current_user)):
-    return service_locator.club_read_facade.get_club_players(club_id)
+    return await service_locator.club_read_facade.get_club_players(club_id)
 
 @router.get("/{club_id}/collectives")
 async def get_club_collectives(club_id: str, current_user: UserSession = Depends(get_current_user)):
-    return service_locator.club_read_facade.get_club_collectives(club_id)
+    return await service_locator.club_read_facade.get_club_collectives(club_id)
 
 @router.get("/{club_id}/collectives/{collective_id}")
 async def get_collective(club_id: str, collective_id: str, current_user: UserSession = Depends(get_current_user)):
-    return service_locator.club_read_facade.get_collective(club_id, collective_id)
+    return await service_locator.club_read_facade.get_collective(club_id, collective_id)

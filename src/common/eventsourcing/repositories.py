@@ -8,14 +8,14 @@ from .exceptions import AggregateNotFoundError
 
 T = TypeVar('T', bound=AggregateRoot)
 
-class IRepository(Generic[T], abc.ABC):
+class IEventStoreRepository(Generic[T], abc.ABC):
     @abc.abstractmethod
     async def save(self, aggregate : AggregateRoot, expected_version : int) -> None:...
 
     @abc.abstractmethod
     async def get_by_id(self, id : str) -> T: ...
 
-class EventStoreRepository(IRepository[T], Generic[T]):
+class EventStoreRepository(IEventStoreRepository[T], Generic[T]):
     __storage : IEventStore
 
     def __init__(self, storage : IEventStore, class_type : type[T]) -> None:

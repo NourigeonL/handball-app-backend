@@ -1,13 +1,13 @@
 from multipledispatch import dispatch
 from src.application.player.commands import RegisterPlayerCommand
 from src.common.cqrs.messages import CommandHandler, IAuthService, IEventPublisher
-from src.common.eventsourcing.repositories import IRepository
+from src.common.eventsourcing.repositories import IEventStoreRepository
 from src.domains.club.model import Club
 from src.domains.player.model import Player, PlayerCreateData
 
 class PlayerService(CommandHandler):
 
-    def __init__(self, auth_service: IAuthService, event_publisher: IEventPublisher, player_repo: IRepository[Player], club_repo: IRepository[Club]):
+    def __init__(self, auth_service: IAuthService, event_publisher: IEventPublisher, player_repo: IEventStoreRepository[Player], club_repo: IEventStoreRepository[Club]):
         super().__init__(auth_service, event_publisher)
         self._player_repo = player_repo
         self._club_repo = club_repo

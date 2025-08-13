@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from http.client import HTTPException
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
+from src.dependencies import UserSession, get_current_user
 from src.service_locator import service_locator
 from fastapi.responses import JSONResponse, RedirectResponse
 from src.settings import settings
@@ -14,9 +15,10 @@ oauth.register(
     client_secret=settings.GOOGLE_AUTH_CLIENT_SECRET,
     authorize_url="https://accounts.google.com/o/oauth2/auth",
     access_token_url="https://accounts.google.com/o/oauth2/token",
+    userinfo_endpoint="https://openidconnect.googleapis.com/v1/userinfo",
     jwks_uri="https://www.googleapis.com/oauth2/v3/certs",
     redirect_uri=f"{settings.BASE_URL}/auth/google",
-    client_kwargs={"scope": "openid profile email"},
+    client_kwargs={"scope": "openid profile email", "access_type": "offline", "prompt": "consent"},
 )
 
 
@@ -40,9 +42,12 @@ async def login(request: Request):
 @router.get("/google")
 async def auth(request: Request):
     token = await oauth.google.authorize_access_token(request)
-    print(token)
+    user_profile = await oauth.google.userinfo(token=token)
     user_info = token.get("userinfo")
-    print(user_info)
+    first_name = user_profile.get("given_name")
+    last_name = user_profile.get("family_name")
+    name = user_profile.get("name")
+    picture = user_profile.get("picture")
     expires_in = token.get("expires_in")
     user_id = user_info.get("sub")
     iss = user_info.get("iss")
@@ -54,9 +59,10 @@ async def auth(request: Request):
     if user_id is None:
         raise HTTPException(status_code=401, detail="Google authentication failed.")
 
+    user = await service_locator.auth_service.sign_up_user_from_google_account(google_account_id=user_id, email=user_email, first_name=first_name, last_name=last_name, name=name)
     # Create JWT token
     access_token_expires = timedelta(seconds=expires_in)
-    access_token = create_access_token(data={"sub": user_id, "email": user_email}, expires_delta=access_token_expires)
+    access_token = create_access_token(data={"user_id": user.user_id, "email": user_email, "first_name": first_name, "last_name": last_name, "name": name, "picture": picture, "club_ids": club_ids}, expires_delta=access_token_expires)
 
     redirect_url = request.session.pop("login_redirect", "")
     response = RedirectResponse(redirect_url)

@@ -14,6 +14,7 @@ class ClubDTO(BaseModel):
     club_id: str
     name: str
     registration_number: str | None = None
+    staff: list[str] = []
 
 class PublicPlayerDTO(BaseModel):
     player_id: str

@@ -1,3 +1,3 @@
 from .aggregates import AggregateRoot
-from .repositories import IRepository
+from .repositories import IEventStoreRepository
 from .event import IEvent

@@ -1,13 +1,16 @@
 from datetime import datetime, timedelta, timezone
 from fastapi.exceptions import HTTPException
-from fastapi import APIRouter, Depends, Request, Response
-from src.dependencies import UserSession, get_current_user, get_current_user_from_token
+from fastapi import APIRouter, Depends, Request, Response, Cookie
+from src.common.enums import StaffMemberRole
+from src.dependencies import get_current_user_from_session
+from src.infrastructure.session_manager import Session
 from src.service_locator import service_locator
 from fastapi.responses import JSONResponse, RedirectResponse
 from src.settings import settings
 from authlib.integrations.starlette_client import OAuth
 from jose import jwt
 from pydantic import BaseModel
+from typing import Annotated
 
 oauth = OAuth()
 oauth.register(
@@ -65,14 +68,15 @@ async def auth(request: Request):
 
     user = await service_locator.auth_service.sign_up_user_from_google_account(google_account_id=user_id, email=user_email, first_name=first_name, last_name=last_name, name=name)
     # Create JWT token
-    access_token_expires = timedelta(seconds=expires_in)
-    access_token = create_access_token(data={"user_id": user.user_id, "email": user_email, "first_name": first_name, "last_name": last_name, "name": name, "picture": picture}, expires_delta=access_token_expires)
+
+    session = await service_locator.session_manager.create_session(user.user_id)
+
 
     redirect_url = request.session.pop("login_redirect", "")
     response = RedirectResponse(redirect_url)
     response.set_cookie(
-        key="access_token",
-        value=access_token,
+        key="session_id",
+        value=session,
         httponly=True,
         secure=False,  # Ensure you're using HTTPS
         samesite="lax",  # Set the SameSite attribute to None
@@ -80,7 +84,7 @@ async def auth(request: Request):
     return response
 
 @router.post("/frontend")
-async def frontend_auth(request: FrontendAuthRequest):
+async def frontend_auth(request: FrontendAuthRequest, response: Response):
     """
     Authenticate user from frontend using Google ID token
     """
@@ -88,43 +92,56 @@ async def frontend_auth(request: FrontendAuthRequest):
         # Authenticate user using the Google ID token
         user = await service_locator.auth_service.authenticate_user_from_frontend(request.id_token)
         
-        # Create JWT token
-        access_token_expires = timedelta(minutes=settings.JWT_EXPIRATION_TIME)
-        access_token = create_access_token(
-            data={
-                "user_id": user.user_id, 
-                "email": user.email
-            }, 
-            expires_delta=access_token_expires
+        session = await service_locator.session_manager.create_session(user.user_id)
+        response.set_cookie(
+            key="session_id",
+            value=session,
+            httponly=True,
+            secure=False,  # Ensure you're using HTTPS
+            samesite="lax",  # Set the SameSite attribute to None
         )
-        
-        return JSONResponse(content={
-            "access_token": access_token,
-            "token_type": "bearer",
-            "expires_in": settings.JWT_EXPIRATION_TIME * 60,  # Convert to seconds
-            "user": {
-                "user_id": user.user_id,
-                "email": user.email,
-                "google_account_id": user.google_account_id
-            }
-        })
+        return response
         
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Authentication failed")
 
-@router.get("/test-token")
-async def test_bearer_token(current_user: UserSession = Depends(get_current_user_from_token)):
-    """
-    Test endpoint to verify Bearer token authentication is working
-    Use this to test your Authorization header: 'Authorization: Bearer <your_token>'
-    """
-    return {
-        "message": "Bearer token authentication successful!",
-        "user": {
-            "user_id": current_user.user_id,
-            "email": current_user.user_email
-        },
-        "timestamp": datetime.now().isoformat()
-    }
+
+class ClubLoginRequest(BaseModel):
+    club_id: str
+
+@router.post("/login-to-club")
+async def login_to_club(
+    request: ClubLoginRequest,
+    session: Session = Depends(get_current_user_from_session),
+    session_id: Annotated[str | None, Cookie()] = None
+):
+    roles = await service_locator.auth_service.get_club_roles(session.user_id, request.club_id)
+    if len(roles) == 0:
+        raise HTTPException(status_code=403, detail="Access denied to club")
+    
+    if session_id:
+        await service_locator.session_manager.update_session(session_id, request.club_id)
+    return JSONResponse(content={
+        "roles": roles
+    })
+
+@router.post("/logout-from-club")
+async def logout_from_club(
+    session: Session = Depends(get_current_user_from_session),
+    session_id: Annotated[str | None, Cookie()] = None
+):
+    if session_id:
+        await service_locator.session_manager.update_session(session_id, None)
+
+@router.post("/logout")
+async def logout(
+    session: Session = Depends(get_current_user_from_session), 
+    response: Response = Response,
+    session_id: Annotated[str | None, Cookie()] = None
+):
+    if session_id:
+        await service_locator.session_manager.delete_session(session_id)
+    response.delete_cookie(key="session_id")
+    return response

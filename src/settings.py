@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_TIME: int = 3600
+    APP_NAME: str = "Handball App Backend"
+    APP_VERSION: str = "1.0.0"
 
 settings = Settings()
 

@@ -1,8 +1,7 @@
 
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator
-from fastapi import FastAPI, HTTPException, Request, status, Depends
-from fastapi.security import APIKeyHeader
+from typing import Annotated, Any, AsyncGenerator
+from fastapi import Cookie, FastAPI, HTTPException, Request, status, Depends
 from pydantic import BaseModel
 from src.application.auth.service import AuthService
 from src.application.collective.service import CollectiveService
@@ -14,136 +13,45 @@ from src.domains.club.model import Club
 from src.domains.collective.model import Collective
 from src.domains.player.model import Player
 from src.domains.user.model import User
+from src.infrastructure.session_manager import Session, SessionManager
 from src.infrastructure.storages.auth_repository import AuthRepository
 from src.read_facades.club_read_facade import ClubReadFacade
 from src.read_facades.public_read_facade import PublicReadFacade
 from src.service_locator import service_locator
-from jose import jwt, ExpiredSignatureError, JWTError
 from src.settings import settings
 from src.common.loggers import app_logger
 from src.common.cqrs.in_mem_bus import InMemBus
 from src.application.club.service import ClubService
 sessions = {}
 
-# API Key header for Bearer token authentication
-api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
-
-class UserSession(BaseModel):
-    user_id: str
-    user_email: str
-
-
-async def get_current_user(request: Request) -> UserSession:
+async def get_current_user_from_session(request: Request) -> Session:
+    """
+    Get current user from session cookie
+    """
     print(request.cookies)
-    access_token = request.cookies.get("access_token")
-    print(access_token)
-    if not access_token:
+    session_id = request.cookies.get("session_id")
+    print(session_id)
+    
+    if not session_id:
+        # No session cookie found, redirect to login
         redirect_url = request.url_for("login")
-        request.session["login_redirect"] = str(request.url)
         raise HTTPException(
             status_code=status.HTTP_302_FOUND,
-            headers={"Location": str(redirect_url)}
+            detail="No session found. Redirecting to login.",
+            headers={"Location": str(redirect_url)},
         )
-
-    credentials_exception = HTTPException(
-        status_code=401,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(access_token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        print(payload)
-        user_id: str | None = payload.get("user_id")
-        user_email: str | None = payload.get("email")
-        if user_id is None or user_email is None:
-            raise credentials_exception
-
-        return UserSession(user_id=user_id, user_email=user_email)
-
-    except ExpiredSignatureError as e:
-        # Specifically handle expired tokens
+    
+    session = await service_locator.session_manager.get_session(session_id)
+    if session is None:
+        # Invalid or expired session, redirect to login
         redirect_url = request.url_for("login")
-        request.session["login_redirect"] = str(request.url)
         raise HTTPException(
             status_code=status.HTTP_302_FOUND,
-            headers={"Location": str(redirect_url)}
-        )
-    except JWTError as e:
-        # Handle other JWT-related errors
-        app_logger.error(f"JWTError: {e}")
-        raise credentials_exception
-    except Exception as e:
-        app_logger.error(f"Exception: {e}")
-        raise HTTPException(status_code=401, detail="Not Authenticated")
-
-
-async def get_current_user_from_token(api_key: str = Depends(api_key_header)) -> UserSession:
-    """
-    Get current user from Bearer token (for frontend authentication)
-    Automatically handles both "Bearer <token>" and "<token>" formats
-    """
-    # Debug logging
-    app_logger.info(f"Received API key header: {api_key}")
-    
-    if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization header is required. Just paste your JWT token in the authorization field.",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Invalid or expired session. Redirecting to login.",
+            headers={"Location": str(redirect_url)},
         )
     
-    # Auto-add "Bearer " prefix if not present
-    if not api_key.startswith("Bearer "):
-        # Check if it looks like a JWT token (contains dots and is reasonably long)
-        if "." in api_key and len(api_key) > 50:
-            # User just pasted the token, add "Bearer " prefix automatically
-            api_key = f"Bearer {api_key}"
-            app_logger.info(f"Auto-added 'Bearer ' prefix. Final header: {api_key}")
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token format. Please paste a valid JWT token.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-    
-    # Extract token (remove "Bearer " prefix)
-    token = api_key[7:]  # More robust than split()[1]
-    
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token is missing from authorization header",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    
-    try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        user_id: str | None = payload.get("user_id")
-        user_email: str | None = payload.get("email")
-        
-        if user_id is None or user_email is None:
-            raise credentials_exception
-
-        app_logger.info(f"Successfully authenticated user: {user_id} ({user_email})")
-        return UserSession(user_id=user_id, user_email=user_email)
-
-    except ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except JWTError:
-        raise credentials_exception
-    except Exception as e:
-        app_logger.error(f"Exception in token validation: {e}")
-        raise HTTPException(status_code=401, detail="Not Authenticated")
+    return session
 
 
 async def init_message_broker(message_broker : InMemBus, event_store : IEventStore) -> IEventPublisher:
@@ -168,6 +76,7 @@ async def lifespan(app : FastAPI)-> AsyncGenerator[Any, None]:
     collective_repo = EventStoreRepository(event_store, Collective)
     service_locator.collective_service = CollectiveService(auth_service, service_locator.event_publisher, collective_repo, club_repo)
     service_locator.auth_service = auth_service
+    service_locator.session_manager = SessionManager()
     yield
     
     

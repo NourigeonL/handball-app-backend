@@ -1,6 +1,7 @@
 
 from multipledispatch import dispatch
 from src.application.auth.models import DBUser
+from src.common.enums import StaffMemberRole
 from src.common.eventsourcing import IEventStoreRepository
 from src.common.cqrs import IAuthService, Command
 from src.common.constants import SYSTEM_ACTOR_ID
@@ -14,8 +15,6 @@ from google.auth.transport import requests as google_requests
 from google.auth import exceptions as google_exceptions
 from src.settings import settings
 from datetime import datetime
-from typing import List
-from src.common.exceptions import GenericError
 
 
 class AuthService(IAuthService):
@@ -121,103 +120,11 @@ class AuthService(IAuthService):
     # CLUB AUTHORIZATION METHODS
     # ============================================================================
 
-    async def can_access_club(self, user_id: str, club_id: str) -> bool:
-        """
-        Check if a user can access a club (view, read operations)
-        Uses domain model directly for immediate consistency
-        """
-        try:
-            club = await self._club_repo.get_by_id(club_id)
-            return self._has_club_access(user_id, club)
-        except Exception:
-            # Club doesn't exist or other error - no access
-            return False
-    
-    async def can_manage_club(self, user_id: str, club_id: str) -> bool:
-        """
-        Check if a user can manage a club (create, update, delete operations)
-        Uses domain model directly for immediate consistency
-        """
-        try:
-            club = await self._club_repo.get_by_id(club_id)
-            return self._has_club_management_access(user_id, club)
-        except Exception:
-            # Club doesn't exist or other error - no management access
-            return False
-    
-    async def can_create_club(self, user_id: str) -> bool:
-        """
-        Check if a user can create a new club
-        """
-        # For now, any authenticated user can create a club
-        # You can add business logic here (e.g., user limits, subscription checks)
-        return True
-    
-    async def get_user_clubs(self, user_id: str) -> List[str]:
-        """
-        Get all club IDs that a user has access to
-        Uses domain models directly for immediate consistency
-        """
-        try:
-            # Get all clubs and filter by access
-            # This is a simple implementation - you might want to optimize this
-            clubs = await self._club_repo.get_all()
-            user_clubs = []
-            
-            for club in clubs:
-                if self._has_club_access(user_id, club):
-                    user_clubs.append(club.id)
-            
-            return user_clubs
-        except Exception:
-            return []
-    
-    def _has_club_access(self, user_id: str, club: Club) -> bool:
-        """
-        Check if user has basic access to club (view operations)
-        """
-        # Owner has access
+    async def get_club_roles(self, user_id: str, club_id: str) -> list[StaffMemberRole]:
+        club = await self._club_repo.get_by_id(club_id)
+        roles = []
         if club.owner_id == user_id:
-            return True
-        
-        # Coaches have access
+            roles.append(StaffMemberRole.OWNER)
         if user_id in club.coaches:
-            return True
-        
-        # You can add more access rules here (e.g., club members, admins)
-        
-        return False
-    
-    def _has_club_management_access(self, user_id: str, club: Club) -> bool:
-        """
-        Check if user has management access to club (modify operations)
-        """
-        # Only owner can manage the club
-        if club.owner_id == user_id:
-            return True
-        
-        # You can add more management roles here (e.g., club admins, managers)
-        
-        return False
-    
-    async def require_club_access(self, user_id: str, club_id: str) -> None:
-        """
-        Require club access - raises exception if access denied
-        """
-        if not await self.can_access_club(user_id, club_id):
-            raise GenericError(
-                status_code=403,
-                detail=f"Access denied to club {club_id}",
-                error_code="CLUB_ACCESS_DENIED"
-            )
-    
-    async def require_club_management(self, user_id: str, club_id: str) -> None:
-        """
-        Require club management access - raises exception if access denied
-        """
-        if not await self.can_manage_club(user_id, club_id):
-            raise GenericError(
-                status_code=403,
-                detail=f"Management access denied to club {club_id}",
-                error_code="CLUB_MANAGEMENT_DENIED"
-            )
+            roles.append(StaffMemberRole.COACH)
+        return roles

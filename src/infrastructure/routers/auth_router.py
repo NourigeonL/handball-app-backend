@@ -84,7 +84,7 @@ async def auth(request: Request):
     return response
 
 @router.post("/frontend")
-async def frontend_auth(request: FrontendAuthRequest, response: Response):
+async def frontend_auth(request: FrontendAuthRequest):
     """
     Authenticate user from frontend using Google ID token
     """
@@ -93,6 +93,16 @@ async def frontend_auth(request: FrontendAuthRequest, response: Response):
         user = await service_locator.auth_service.authenticate_user_from_frontend(request.id_token)
         
         session = await service_locator.session_manager.create_session(user.user_id)
+        
+        response = JSONResponse(
+            content={
+                "message": "Authentication successful",
+                "user_id": user.user_id,
+                "session_id": session
+            },
+            status_code=200
+        )
+        
         response.set_cookie(
             key="session_id",
             value=session,

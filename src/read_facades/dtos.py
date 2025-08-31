@@ -1,7 +1,5 @@
 from datetime import date
 from pydantic import BaseModel
-from typing import List
-
 from src.common.enums import Gender, LicenseType
 
 
@@ -63,7 +61,6 @@ class CollectiveDTO(BaseModel):
     collective_id: str
     name: str
     description: str | None = None
-    players: List[CollectivePlayerDTO]
     nb_players: int
 
 

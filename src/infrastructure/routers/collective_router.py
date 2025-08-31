@@ -5,7 +5,8 @@ from fastapi.responses import JSONResponse
 from httpx import get
 from pydantic import BaseModel
 from src.dependencies import check_club_access, get_current_user_from_session
-from src.read_facades.dtos import CollectiveListDTO, CollectivePlayerDTO
+from src.read_facades.dtos import CollectiveDTO, CollectiveListDTO, CollectivePlayerDTO
+from src.read_facades.pagination import PaginatedDTO
 from src.service_locator import service_locator
 from src.application.collective.commands import CreateCollectiveCommand, AddPlayerToCollectiveCommand, RemovePlayerFromCollectiveCommand
 from src.infrastructure.session_manager import Session
@@ -70,9 +71,19 @@ async def get_collective_list(
 ) -> list[CollectiveListDTO]:
     return await service_locator.club_read_facade.get_collective_list(current_user.club_id)
 
+
+@router.get("/{collective_id}")
+async def get_collective(
+    collective_id: str,
+    current_user: Session = Depends(get_current_user_from_session)
+) -> CollectiveDTO:
+    return await service_locator.club_read_facade.get_collective(current_user.club_id, collective_id)
+
 @router.get("/{collective_id}/players")
 async def get_collective_players(
     collective_id: str,
-    current_user: Session = Depends(get_current_user_from_session)
-) -> list[CollectivePlayerDTO]:
-    return await service_locator.club_read_facade.get_collective_players(current_user.club_id, collective_id)
+    current_user: Session = Depends(get_current_user_from_session),
+    page: int = 0,
+    per_page: int = 10
+) -> PaginatedDTO[CollectivePlayerDTO]:
+    return await service_locator.club_read_facade.get_collective_players(current_user.club_id, collective_id, page, per_page)

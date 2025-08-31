@@ -40,6 +40,7 @@ class Player(Base):
     __tablename__ = "player"
     id: Mapped[str] = mapped_column(String, primary_key=True)
     club_id: Mapped[str] = mapped_column(ForeignKey(Club.id), nullable=True)
+    club: Mapped[Club] = relationship()
     first_name: Mapped[str] = mapped_column(String)
     last_name: Mapped[str] = mapped_column(String)
     gender: Mapped[str] = mapped_column(String)

@@ -146,6 +146,14 @@ async def logout_from_club(
     if session_id:
         await service_locator.session_manager.update_session(session_id, None)
 
+        response = JSONResponse(
+                content={
+                    "message": "Logout from club successful",
+                },
+                status_code=200
+            )
+        return response
+
 @router.post("/logout")
 async def logout(
     session: Session = Depends(get_current_user_from_session), 

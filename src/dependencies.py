@@ -31,9 +31,7 @@ async def get_current_user_from_session(request: Request) -> Session:
     """
     Get current user from session cookie
     """
-    print(request.cookies)
     session_id = request.cookies.get("session_id")
-    print(session_id)
     
     if not session_id:
         # No session cookie found, redirect to login
@@ -45,7 +43,6 @@ async def get_current_user_from_session(request: Request) -> Session:
         )
     
     session = await service_locator.session_manager.get_session(session_id)
-    print(f"session: {session}")
     if session is None:
         # Invalid or expired session, redirect to login
         redirect_url = request.url_for("login")
@@ -56,6 +53,45 @@ async def get_current_user_from_session(request: Request) -> Session:
         )
     
     return session
+
+
+async def check_club_access(
+    club_id: str,
+    current_user: Session = Depends(get_current_user_from_session)
+) -> Session:
+    """
+    Dependency to check if the current user has access to a specific club.
+    Raises HTTPException if access is denied.
+    Returns the current user session if access is granted.
+    """
+    if not current_user.club_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You are not logged into any club. Please log into a club first."
+        )
+    
+    if club_id != current_user.club_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You are not authorized to access this club"
+        )
+    
+    return current_user
+
+
+async def check_club_access_optional(
+    club_id: str | None = None,
+    current_user: Session = Depends(get_current_user_from_session)
+) -> Session:
+    """
+    Optional dependency to check club access.
+    If no club_id is provided, just returns the current user.
+    If club_id is provided, validates access to that club.
+    """
+    if club_id is None:
+        return current_user
+    
+    return await check_club_access(club_id, current_user)
 
 
 async def init_message_broker(message_broker : InMemBus, event_store : IEventStore) -> IEventPublisher:

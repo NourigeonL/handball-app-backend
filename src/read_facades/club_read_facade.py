@@ -7,8 +7,8 @@ from src.common.eventsourcing.event import IEvent
 from src.domains.club.events import ClubCreated
 from src.domains.collective.events import CollectiveCreated, PlayerAddedToCollective, PlayerRemovedFromCollective
 from src.domains.player.events import PlayerRegistered
-from src.infrastructure.storages.sql_model import Collective, CollectivePlayer, Player
-from src.read_facades.dtos import ClubDTO, ClubPlayerDTO, CollectiveDTO, CollectiveListDTO, UserClubAccessDTO
+from src.infrastructure.storages.sql_model import Club, Collective, CollectivePlayer, Player
+from src.read_facades.dtos import ClubDTO, ClubPlayerDTO, CollectiveDTO, CollectiveListDTO, CollectivePlayerDTO, UserClubAccessDTO
 from src.read_facades.interface import IReadFacade
 
 
@@ -42,3 +42,16 @@ class ClubReadFacade(IReadFacade):
             for collective_player in result.scalars().all():
                 players_dict[collective_player.player_id].collectives.append(CollectiveListDTO(collective_id=collective_player.collective_id, name=collective_player.collective.name, nb_players=collective_player.collective.number_of_players, description=collective_player.collective.description))
             return list(players_dict.values())
+    
+    async def get_collective_players(self, club_id: str, collective_id: str) -> list[CollectivePlayerDTO]:
+        async with self.async_session_maker() as session:
+            result = await session.execute(select(Player).join(CollectivePlayer).where(CollectivePlayer.collective_id == collective_id, Player.club_id == club_id))
+            return [CollectivePlayerDTO(player_id=player.id, first_name=player.first_name, last_name=player.last_name, gender=player.gender, date_of_birth=player.date_of_birth, license_number=player.license_number, license_type=player.license_type) for player in result.scalars().all()]
+
+    async def get_user_club_access(self, user_id: str, club_id: str) -> UserClubAccessDTO:
+        async with self.async_session_maker() as session:
+            result = await session.execute(select(Club).where(Club.id == club_id, Club.owner_id == user_id))
+            club = result.scalars().first()
+            if club:
+                return UserClubAccessDTO(club_id=club.id, name=club.name, access_level="owner", can_manage=True)
+            return None

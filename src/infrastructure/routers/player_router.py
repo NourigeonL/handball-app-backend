@@ -39,7 +39,11 @@ async def register_player(
         season=register_player_request.season))
     return JSONResponse(status_code=201, content={"message": "Player registered successfully"})
 
-
+@router.get("")
+async def get_player_list(
+    current_user: Session = Depends(get_current_user_from_session)
+):
+    return await service_locator.club_read_facade.club_players(current_user.club_id)
 
 
 

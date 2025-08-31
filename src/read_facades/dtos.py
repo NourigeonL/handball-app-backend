@@ -5,7 +5,7 @@ from typing import List
 from src.common.enums import Gender, LicenseType
 
 
-class ClubListDTO(BaseModel):
+class PublicClubDTO(BaseModel):
     club_id: str
     name: str
     registration_number: str | None = None
@@ -22,7 +22,7 @@ class PublicPlayerDTO(BaseModel):
     player_id: str
     first_name: str
     last_name: str
-    club_name: str
+    club: PublicClubDTO
     gender: Gender
     date_of_birth: date
     license_number: str | None = None
@@ -45,7 +45,9 @@ class CollectiveListDTO(BaseModel):
     nb_players: int
 
 
-class ClubPlayerDTO(BaseModel):
+
+
+class CollectivePlayerDTO(BaseModel):
     player_id: str
     first_name: str
     last_name: str
@@ -53,13 +55,15 @@ class ClubPlayerDTO(BaseModel):
     date_of_birth: date
     license_number: str | None = None
     license_type: LicenseType | None = None
+
+class ClubPlayerDTO(CollectivePlayerDTO):
     collectives: list[CollectiveListDTO] = []
 
 class CollectiveDTO(BaseModel):
     collective_id: str
     name: str
     description: str | None = None
-    players: List[ClubPlayerDTO]
+    players: List[CollectivePlayerDTO]
     nb_players: int
 
 

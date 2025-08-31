@@ -11,8 +11,10 @@ class CreateCollectiveCommand(Command):
 class AddPlayerToCollectiveCommand(Command):
     collective_id: str
     player_id: str
-
+    club_id: str
+    
 @dataclass
 class RemovePlayerFromCollectiveCommand(Command):
     collective_id: str
     player_id: str
+    club_id: str

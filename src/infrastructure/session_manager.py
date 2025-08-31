@@ -4,6 +4,8 @@ import secrets
 
 from pydantic import BaseModel
 
+from src.common.loggers import app_logger
+
 class Session(BaseModel):
     user_id: str
     google_id_token: str | None = None
@@ -29,16 +31,22 @@ class SessionManager:
             json.dump(self.sessions, f)
         return session_id
 
-    async def update_session(self, session_id: str, club_id: str | None = None) -> None:
-        if club_id is not None:
-            self.sessions[session_id]["club_id"] = club_id
+    async def update_session(self, session_id: str, club_id: str | None = None) -> Session:
+        session = self.sessions.get(session_id)
+        if session is None:
+            return None
+        self.sessions[session_id]["club_id"] = club_id
         with open("session_manager.json", "w") as f:
             json.dump(self.sessions, f)
+        return Session.model_validate(session)
     
     async def get_session(self, session_id: str | None = None) -> Session | None:
         if session_id is None:
             return None
-        return Session.model_validate(self.sessions.get(session_id))
+        session = self.sessions.get(session_id)
+        if session is None:
+            return None
+        return Session.model_validate(session)
     
     async def delete_session(self, session_id: str) -> None:
         del self.sessions[session_id]

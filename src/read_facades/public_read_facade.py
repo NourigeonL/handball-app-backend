@@ -1,51 +1,44 @@
 from multipledispatch import dispatch
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from src.common.eventsourcing.event import IEvent
 from src.domains.club.events import ClubCreated, CoachAdded
-from src.domains.player.events import PlayerCreated
+from src.domains.player.events import PlayerRegistered
 from src.domains.user.events import UserSignedUp
+from src.infrastructure.storages.sql_model import Club
 from src.read_facades.dtos import ClubDTO, ClubListDTO
 from src.read_facades.interface import IReadFacade
 
 
 class PublicReadFacade(IReadFacade):
     
-    def __init__(self):
-        self.club_list : dict[str, ClubListDTO] = {}
-        self.club_dict : dict[str, ClubDTO] = {}
-        self.user_clubs : dict[str, set[str]] = {}
-
-    @dispatch(ClubCreated)
-    def _apply(self, event: ClubCreated) -> None:
-        self.club_list[event.club_id] = ClubListDTO(club_id=event.club_id, name=event.name, registration_number=event.registration_number)
-        self.user_clubs[event.owner_id].add(event.club_id)
-        self.club_dict[event.club_id] = ClubDTO(club_id=event.club_id, name=event.name, registration_number=event.registration_number, owner_id=event.owner_id)
-
-    @dispatch(PlayerCreated)
-    def _apply(self, event: PlayerCreated) -> None:
-        self.club_list[event.club_id].nb_players += 1
-
-    @dispatch(UserSignedUp)
-    def _apply(self, event: UserSignedUp) -> None:
-        self.user_clubs[event.user_id] = set()
-
-    @dispatch(CoachAdded)
-    def _apply(self, event: CoachAdded) -> None:
-        self.user_clubs[event.user_id].add(event.club_id)
-
-
-    @dispatch(IEvent)
-    def _apply(self, event: "IEvent") -> None:
-        print(f"Event {event.type} not handled")
-
+    def __init__(self, url: str):
+        self.url = url
+        self.async_engine = create_async_engine(url, 
+                                                echo=False, 
+                                                pool_size=10,
+                                                max_overflow=20,
+                                                pool_pre_ping=True,
+                                                pool_recycle=3600)
+        self.async_session_maker = async_sessionmaker(self.async_engine, expire_on_commit=False)
 
     async def get_club_list(self) -> list[ClubListDTO]:
-        return list(self.club_list.values())
+        async with self.async_session_maker() as session:
+            result = await session.execute(select(Club).order_by(Club.name))
+            return [ClubListDTO(club_id=club.id, name=club.name, registration_number=club.registration_number, nb_players=club.number_of_players) for club in result.scalars().all()]
 
     async def get_club(self, club_id: str) -> ClubDTO | None:
-        return self.club_dict.get(club_id)
+        async with self.async_session_maker() as session:
+            result = await session.execute(select(Club).where(Club.id == club_id))
+            club = result.scalars().first()
+            if club:
+                return ClubDTO(club_id=club.id, name=club.name, registration_number=club.registration_number, nb_players=club.number_of_players)
+            return None
 
     async def get_user_clubs(self, user_id: str) -> list[ClubListDTO]:
         res = []
-        for club_id in self.user_clubs.get(user_id, []):
-            res.append(self.club_list[club_id])
+        async with self.async_session_maker() as session:
+            result = await session.execute(select(Club).where(Club.owner_id == user_id))
+            for club in result.scalars().all():
+                res.append(ClubListDTO(club_id=club.id, name=club.name, registration_number=club.registration_number, nb_players=club.number_of_players))
         return res

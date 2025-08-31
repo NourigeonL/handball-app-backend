@@ -1,4 +1,5 @@
 
+import asyncio
 from contextlib import asynccontextmanager
 from typing import Annotated, Any, AsyncGenerator
 from fastapi import Cookie, FastAPI, HTTPException, Request, status, Depends
@@ -11,6 +12,7 @@ from src.common.cqrs.messages import IEventPublisher
 from src.common.eventsourcing.repositories import EventStoreRepository
 from src.domains.club.model import Club
 from src.domains.collective.model import Collective
+from src.domains.federation.model import Federation
 from src.domains.player.model import Player
 from src.domains.user.model import User
 from src.infrastructure.session_manager import Session, SessionManager
@@ -22,6 +24,7 @@ from src.settings import settings
 from src.common.loggers import app_logger
 from src.common.cqrs.in_mem_bus import InMemBus
 from src.application.club.service import ClubService
+from src.worker import Worker
 sessions = {}
 
 async def get_current_user_from_session(request: Request) -> Session:
@@ -42,6 +45,7 @@ async def get_current_user_from_session(request: Request) -> Session:
         )
     
     session = await service_locator.session_manager.get_session(session_id)
+    print(f"session: {session}")
     if session is None:
         # Invalid or expired session, redirect to login
         redirect_url = request.url_for("login")
@@ -59,8 +63,9 @@ async def init_message_broker(message_broker : InMemBus, event_store : IEventSto
 
 @asynccontextmanager
 async def lifespan(app : FastAPI)-> AsyncGenerator[Any, None]:
-    public_read_facade = PublicReadFacade()
-    club_read_facade = ClubReadFacade()
+    db_url = "sqlite+aiosqlite:///read_model.db"
+    public_read_facade = PublicReadFacade(db_url)
+    club_read_facade = ClubReadFacade(db_url)
     event_store = JsonFileEventStore("./event_store.json", [public_read_facade, club_read_facade])
     service_locator.public_read_facade = public_read_facade
     service_locator.club_read_facade = club_read_facade
@@ -68,15 +73,18 @@ async def lifespan(app : FastAPI)-> AsyncGenerator[Any, None]:
     club_repo = EventStoreRepository(event_store, Club)
     auth_repo = AuthRepository("./auth_repository.json")
     user_repo = EventStoreRepository(event_store, User)
+    federation_repo = EventStoreRepository(event_store, Federation)
     auth_service = AuthService(auth_repo, user_repo, club_repo)
-    
+    worker = Worker(event_store, db_url)
     service_locator.club_service = ClubService(auth_service, service_locator.event_publisher, club_repo)
     player_repo = EventStoreRepository(event_store, Player)
-    service_locator.player_service = PlayerService(auth_service, service_locator.event_publisher, player_repo, club_repo)
+    service_locator.player_service = PlayerService(auth_service, service_locator.event_publisher, player_repo, club_repo, federation_repo)
     collective_repo = EventStoreRepository(event_store, Collective)
     service_locator.collective_service = CollectiveService(auth_service, service_locator.event_publisher, collective_repo, club_repo)
     service_locator.auth_service = auth_service
     service_locator.session_manager = SessionManager()
+    asyncio.create_task(worker.start())
     yield
+    worker.stop()
     
     

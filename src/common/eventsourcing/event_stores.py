@@ -15,6 +15,10 @@ class IEventStore(abc.ABC):
     @abc.abstractmethod
     async def get_events_for_aggregate(self, aggregate_id : str) -> list[IEvent]:...
     
+    async def get_last_commit_position(self) -> int:...
+
+    async def get_all_events_from_position(self, position : int) -> list[IEvent]:...
+
 
 def get_event_class(class_name) -> type[IEvent]:
     for module in list(sys.modules.values()):
@@ -90,21 +94,22 @@ class InMemEventStore(IEventStore):
 class JsonFileEventStore(IEventStore):
     def __init__(self, file_path : str, read_facade_list : list[IReadFacade]) -> None:
         self.file_path = file_path
-        self.current : dict[str, list[dict]] = {}
+        self.db = {"event_list": [], "aggretates" :{}}
+        self.current : dict[str, list[dict]] = self.db["aggretates"]
         self.read_facade_list = read_facade_list
         if not os.path.exists(self.file_path):
             with open(self.file_path, "w") as f:
-                json.dump({}, f)
+                json.dump(self.db, f)
         self.load()
     def load(self) -> None:
         if os.path.exists(self.file_path):
             with open(self.file_path, "r") as f:
-                self.current = json.load(f)
-        for event_descriptor in self.current.values():
-            for event_descriptor in event_descriptor:
-                for read_facade in self.read_facade_list:
-                    event_data = json.loads(event_descriptor["event_data"])
-                    read_facade.update_read_model(get_event_class(event_descriptor["event_type"]).from_dict(event_data))
+                self.db = json.load(f)
+                self.current = self.db["aggretates"]
+        for event_descriptor in self.db["event_list"]:
+            for read_facade in self.read_facade_list:
+                event_data = json.loads(event_descriptor["event_data"])
+                read_facade.update_read_model(get_event_class(event_descriptor["event_type"]).from_dict(event_data))
 
     async def save_events(self, aggregate_id: str, events: list[IEvent], expected_version: int) -> None:
         event_descriptors = self.current.get(aggregate_id)
@@ -113,6 +118,7 @@ class JsonFileEventStore(IEventStore):
                 raise ConcurrencyError()
             event_descriptors = []
             self.current[aggregate_id] = event_descriptors
+
 
         elif EventDescriptor.from_dict(event_descriptors[len(event_descriptors)-1]).version != expected_version:
             raise ConcurrencyError()
@@ -123,12 +129,18 @@ class JsonFileEventStore(IEventStore):
             i += 1
             event_descriptor = EventDescriptor(aggregate_id, event.type,json.dumps(event.to_dict()), i).to_dict()
             event_descriptors.append(event_descriptor)
+            self.db["event_list"].append(event_descriptor)
             for read_facade in self.read_facade_list:
                 read_facade.update_read_model(event)
 
         with open(self.file_path, "w") as f:
-            json.dump(self.current, f)
+            json.dump(self.db, f)
 
     async def get_events_for_aggregate(self, aggregate_id: str) -> list[IEvent]:
         return [get_event_class(desc["event_type"]).from_dict(json.loads(desc["event_data"])) for desc in self.current.get(aggregate_id, [])]
 
+    async def get_last_commit_position(self) -> int:
+        return len(self.db["event_list"])
+    
+    async def get_all_events_from_position(self, position : int) -> list[IEvent]:
+        return [get_event_class(desc["event_type"]).from_dict(json.loads(desc["event_data"])) for desc in self.db["event_list"][position:]]

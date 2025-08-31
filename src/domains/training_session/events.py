@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-
+from src.common.enums import TrainingSessionPlayerStatus
 from src.common.eventsourcing.event import IEvent
 
 @dataclass
@@ -11,7 +11,8 @@ class TrainingSessionCreated(IEvent):
     end_time: str | None = None
 
 @dataclass
-class PlayersAddedToTrainingSession(IEvent):
+class PlayerTrainingSessionStatusChanged(IEvent):
     training_session_id: str
-    player_ids: list[str]
+    player_id: str
+    status: TrainingSessionPlayerStatus
 

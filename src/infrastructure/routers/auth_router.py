@@ -49,6 +49,7 @@ async def login(request: Request):
 @router.get("/google")
 async def auth(request: Request):
     token = await oauth.google.authorize_access_token(request)
+    print(token)
     user_profile = await oauth.google.userinfo(token=token)
     user_info = token.get("userinfo")
     first_name = user_profile.get("given_name")
@@ -69,7 +70,7 @@ async def auth(request: Request):
     user = await service_locator.auth_service.sign_up_user_from_google_account(google_account_id=user_id, email=user_email, first_name=first_name, last_name=last_name, name=name)
     # Create JWT token
 
-    session = await service_locator.session_manager.create_session(user.user_id)
+    session = await service_locator.session_manager.create_session(Session(user_id=user.user_id, google_id_token=token.get("id_token")))
 
 
     redirect_url = request.session.pop("login_redirect", "")
@@ -92,7 +93,7 @@ async def frontend_auth(request: FrontendAuthRequest):
         # Authenticate user using the Google ID token
         user = await service_locator.auth_service.authenticate_user_from_frontend(request.id_token)
         
-        session = await service_locator.session_manager.create_session(user.user_id)
+        session = await service_locator.session_manager.create_session(Session(user_id=user.user_id))
         
         response = JSONResponse(
             content={
@@ -155,3 +156,7 @@ async def logout(
         await service_locator.session_manager.delete_session(session_id)
     response.delete_cookie(key="session_id")
     return response
+
+@router.get("/me")
+async def me(session: Session = Depends(get_current_user_from_session)) -> Session:
+    return session

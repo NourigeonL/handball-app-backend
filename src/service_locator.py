@@ -4,6 +4,7 @@ from src.application.auth.service import AuthService
 from src.application.club.service import ClubService
 from src.application.collective.service import CollectiveService
 from src.application.player.service import PlayerService
+from src.application.training_session.service import TrainingSessionService
 from src.common.cqrs.messages import IEventPublisher
 from src.infrastructure.session_manager import SessionManager
 from src.read_facades.club_read_facade import ClubReadFacade
@@ -75,5 +76,13 @@ class ServiceLocator:
     @session_manager.setter
     def session_manager(self, session_manager : SessionManager) -> None:
         self.__global["session_manager"] = session_manager
+
+    @property
+    def training_session_service(self) -> TrainingSessionService:
+        return self.__global["training_session_service"]
+    
+    @training_session_service.setter
+    def training_session_service(self, training_session_service : TrainingSessionService) -> None:
+        self.__global["training_session_service"] = training_session_service
 
 service_locator = ServiceLocator()

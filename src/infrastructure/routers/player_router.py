@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from src.application.player.commands import RegisterPlayerCommand
-from src.common.enums import Gender, LicenseType
+from src.common.enums import Gender, LicenseType, Season
 from src.dependencies import get_current_user_from_session
 from src.service_locator import service_locator
 from src.infrastructure.session_manager import Session
@@ -20,6 +20,7 @@ class RegisterPlayerRequest(BaseModel):
     date_of_birth: date
     license_number: str | None = None
     license_type: LicenseType | None = None
+    season: Season = Season.current_season()
 
 @router.post("/register")
 async def register_player(
@@ -34,18 +35,10 @@ async def register_player(
         gender=register_player_request.gender,
         date_of_birth=register_player_request.date_of_birth,
         license_number=register_player_request.license_number,
-        license_type=register_player_request.license_type))
+        license_type=register_player_request.license_type,
+        season=register_player_request.season))
     return JSONResponse(status_code=201, content={"message": "Player registered successfully"})
 
-
-class PlayerCreateRequest(BaseModel):
-    first_name: str
-    last_name: str
-    gender: str
-    date_of_birth: str
-    license_number: str | None = None
-    license_type: str | None = None
-    club_id: str
 
 
 

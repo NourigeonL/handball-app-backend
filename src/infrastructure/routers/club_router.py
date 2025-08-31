@@ -34,6 +34,7 @@ async def create_club(
 
 @router.get("/my-clubs")
 async def get_club_list(current_user: Session = Depends(get_current_user_from_session)):
+    print(f"current_user: {current_user}")
     return await service_locator.public_read_facade.get_user_clubs(current_user.user_id)
 
 
@@ -42,7 +43,8 @@ async def get_club_info(
     club_id: str, 
     current_user: Session = Depends(get_current_user_from_session)
 ):
-    
+    if club_id != current_user.club_id:
+        raise HTTPException(status_code=403, detail="You are not authorized to access this club")
     club_info = await service_locator.public_read_facade.get_club(club_id)
     user_access = service_locator.club_read_facade.get_user_club_access(current_user.user_id, club_id)
     
@@ -54,3 +56,12 @@ async def get_club_info(
             "can_manage": user_access.can_manage if user_access else False
         }
     }
+
+@router.get("/{club_id}/players")
+async def get_club_players(
+    club_id: str, 
+    current_user: Session = Depends(get_current_user_from_session)
+):
+    if club_id != current_user.club_id:
+        raise HTTPException(status_code=403, detail="You are not authorized to access this club")
+    return await service_locator.club_read_facade.club_players(club_id)

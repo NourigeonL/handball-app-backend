@@ -11,5 +11,6 @@ class RegisterPlayerCommand(Command):
     last_name: str
     gender: Gender
     date_of_birth: date
+    season: str
     license_number: str | None = None
     license_type: LicenseType | None = None

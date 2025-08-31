@@ -10,15 +10,15 @@ from src.read_facades.dtos import CollectiveDTO, CollectiveListDTO
 from src.read_facades.interface import IReadFacade
 from src.infrastructure.session_manager import Session
 
-router = APIRouter(prefix="/collectives", tags=["collectives"])
+router = APIRouter(prefix="/clubs/{club_id}/collectives", tags=["collectives"])
 
 class CollectiveCreateRequest(BaseModel):
     name: str
     description: str | None = None
-    club_id: str
 
 @router.post("/create")
 async def create_collective(
+    club_id: str,
     collective_create_request: CollectiveCreateRequest, 
     current_user: Session = Depends(get_current_user_from_session)
 ):
@@ -26,7 +26,7 @@ async def create_collective(
         actor_id=current_user.user_id, 
         name=collective_create_request.name, 
         description=collective_create_request.description,
-        club_id=collective_create_request.club_id,
+        club_id=club_id,
     ))
     return JSONResponse(status_code=201, content={"message": "Collective created successfully"})
 
@@ -36,6 +36,7 @@ class AddPlayerToCollectiveRequest(BaseModel):
 
 @router.post("/add-player")
 async def add_player_to_collective(
+    club_id: str,
     add_player_request: AddPlayerToCollectiveRequest, 
     current_user: Session = Depends(get_current_user_from_session)
 ):
@@ -52,6 +53,7 @@ class RemovePlayerFromCollectiveRequest(BaseModel):
 
 @router.post("/remove-player")
 async def remove_player_from_collective(
+    club_id: str,
     remove_player_request: RemovePlayerFromCollectiveRequest, 
     current_user: Session = Depends(get_current_user_from_session)
 ):
@@ -63,4 +65,9 @@ async def remove_player_from_collective(
     return JSONResponse(status_code=200, content={"message": "Player removed from collective successfully"})
 
 
-
+@router.get("")
+async def get_collective_list(
+    club_id: str,
+    current_user: Session = Depends(get_current_user_from_session)
+):
+    return await service_locator.club_read_facade.get_collective_list(club_id)

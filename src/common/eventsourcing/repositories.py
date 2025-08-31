@@ -15,6 +15,9 @@ class IEventStoreRepository(Generic[T], abc.ABC):
     @abc.abstractmethod
     async def get_by_id(self, id : str) -> T: ...
 
+    @abc.abstractmethod
+    async def get_singleton_aggregate(self) -> T: ...
+
 class EventStoreRepository(IEventStoreRepository[T], Generic[T]):
     __storage : IEventStore
 
@@ -31,5 +34,11 @@ class EventStoreRepository(IEventStoreRepository[T], Generic[T]):
         e = await self.__storage.get_events_for_aggregate(obj.to_stream_id(id))
         if not e:
             raise AggregateNotFoundError(id)
+        obj.loads_from_history(e)
+        return obj
+
+    async def get_singleton_aggregate(self) -> T:
+        obj = self.class_type()
+        e = await self.__storage.get_events_for_aggregate(obj.to_stream_id(obj.id))
         obj.loads_from_history(e)
         return obj

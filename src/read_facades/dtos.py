@@ -38,6 +38,13 @@ class PlayerDTO(BaseModel):
     license_number: str | None = None
     license_type: LicenseType | None = None
 
+class CollectiveListDTO(BaseModel):
+    collective_id: str
+    name: str
+    description: str | None = None
+    nb_players: int
+
+
 class ClubPlayerDTO(BaseModel):
     player_id: str
     first_name: str
@@ -46,6 +53,7 @@ class ClubPlayerDTO(BaseModel):
     date_of_birth: date
     license_number: str | None = None
     license_type: LicenseType | None = None
+    collectives: list[CollectiveListDTO] = []
 
 class CollectiveDTO(BaseModel):
     collective_id: str
@@ -54,10 +62,7 @@ class CollectiveDTO(BaseModel):
     players: List[ClubPlayerDTO]
     nb_players: int
 
-class CollectiveListDTO(BaseModel):
-    collective_id: str
-    name: str
-    nb_players: int
+
 
 
 class UserClubAccessDTO(BaseModel):

@@ -1,10 +1,11 @@
 
 from multipledispatch import dispatch
 from pydantic import BaseModel
+from src.common.enums import TrainingSessionPlayerStatus
 from src.common.eventsourcing.aggregates import AggregateRoot
 from datetime import date, datetime
 from src.common.guid import guid
-from src.domains.training_session.events import PlayersAddedToTrainingSession, TrainingSessionCreated
+from src.domains.training_session.events import PlayerTrainingSessionStatusChanged, TrainingSessionCreated
 
 class TrainingSessionCreate(BaseModel):
     actor_id: str
@@ -26,7 +27,7 @@ class TrainingSession(AggregateRoot):
 
     def __init__(self, create: TrainingSessionCreate | None = None):
         super().__init__()
-        self.players = []
+        self.players = {}
         if create:
             self._apply_change(TrainingSessionCreated(
                 training_session_id=guid(),
@@ -37,6 +38,15 @@ class TrainingSession(AggregateRoot):
                 actor_id=create.actor_id,
             ))
 
+    def change_player_status(self, actor_id: str, player_id: str, status: TrainingSessionPlayerStatus):
+        self._apply_change(PlayerTrainingSessionStatusChanged(
+            training_session_id=self.id,
+            player_id=player_id,
+            status=status,
+            actor_id=actor_id,
+        ))
+
+
     
     @dispatch(TrainingSessionCreated)
     def _apply(self, event: TrainingSessionCreated):
@@ -45,8 +55,7 @@ class TrainingSession(AggregateRoot):
         self.date = event.date
         self.start_time = event.start_time
         self.end_time = event.end_time
-        self.actor_id = event.actor_id
 
-    @dispatch(PlayersAddedToTrainingSession)
-    def _apply(self, event: PlayersAddedToTrainingSession):
-        self.players.extend(event.player_ids)
+    @dispatch(PlayerTrainingSessionStatusChanged)
+    def _apply(self, event: PlayerTrainingSessionStatusChanged):
+        self.players[event.player_id] = event.status

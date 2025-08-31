@@ -15,6 +15,7 @@ from src.domains.player import events as player_events
 from src.domains.user import events as user_events
 from src.domains.collective import events as collective_events
 from src.infrastructure.storages.sql_model import Club, Collective, CollectivePlayer, LastRecordedEventPosition, Base, Player, User
+from src.service_locator import service_locator
 
 class Worker:
     def __init__(self, event_store: IEventStore, url: str):
@@ -47,6 +48,8 @@ class Worker:
             subscription = await self.event_store.get_all_events_from_position(self.__last_recorded_event_position)
             try:
                 async with self.async_session_maker() as session:
+                    if len(subscription) == 0:
+                        return
                     for event in subscription:
                         app_logger.debug(f"Processing event {event.event_id} : {event.type}")
                         self.__last_recorded_event_position = self.__last_recorded_event_position+1
@@ -141,6 +144,7 @@ class Worker:
         if club:
             club.number_of_players = club.number_of_players + 1
             await session.merge(club)
+        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_player_list_updated"})
 
     @dispatch(player_events.PlayerUnregisteredFromClub, AsyncSession)
     async def handle(self, event: player_events.PlayerUnregisteredFromClub, session: AsyncSession) -> None:
@@ -153,13 +157,14 @@ class Worker:
         if club:
             club.number_of_players = club.number_of_players - 1
             await session.merge(club)
-
+        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_player_list_updated"})
     @dispatch(collective_events.CollectiveCreated, AsyncSession)
     async def handle(self, event: collective_events.CollectiveCreated, session: AsyncSession) -> None:
         app_logger.info(f"CollectiveCreated: {event.collective_id}")
         collective = Collective(id=event.collective_id, club_id=event.club_id, name=event.name, description=event.description)
         session.add(collective)
         await session.merge(collective)
+        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_collective_list_updated"})
 
     @dispatch(collective_events.PlayerAddedToCollective, AsyncSession)
     async def handle(self, event: collective_events.PlayerAddedToCollective, session: AsyncSession) -> None:

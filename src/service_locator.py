@@ -7,6 +7,7 @@ from src.application.player.service import PlayerService
 from src.application.training_session.service import TrainingSessionService
 from src.common.cqrs.messages import IEventPublisher
 from src.infrastructure.session_manager import SessionManager
+from src.infrastructure.websocket_manager import WebSocketManager
 from src.read_facades.club_read_facade import ClubReadFacade
 from src.read_facades.public_read_facade import PublicReadFacade
 
@@ -84,5 +85,13 @@ class ServiceLocator:
     @training_session_service.setter
     def training_session_service(self, training_session_service : TrainingSessionService) -> None:
         self.__global["training_session_service"] = training_session_service
+
+    @property
+    def websocket_manager(self) -> WebSocketManager:
+        return self.__global["websocket_manager"]
+    
+    @websocket_manager.setter
+    def websocket_manager(self, websocket_manager : WebSocketManager) -> None:
+        self.__global["websocket_manager"] = websocket_manager
 
 service_locator = ServiceLocator()

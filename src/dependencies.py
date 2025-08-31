@@ -2,7 +2,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from typing import Annotated, Any, AsyncGenerator
-from fastapi import Cookie, FastAPI, HTTPException, Request, status, Depends
+from fastapi import Cookie, FastAPI, HTTPException, Request, status, Depends, WebSocket
 from pydantic import BaseModel
 from src.application.auth.service import AuthService
 from src.application.collective.service import CollectiveService
@@ -17,6 +17,7 @@ from src.domains.player.model import Player
 from src.domains.user.model import User
 from src.infrastructure.session_manager import Session, SessionManager
 from src.infrastructure.storages.auth_repository import AuthRepository
+from src.infrastructure.websocket_manager import WebSocketManager
 from src.read_facades.club_read_facade import ClubReadFacade
 from src.read_facades.public_read_facade import PublicReadFacade
 from src.service_locator import service_locator
@@ -50,6 +51,37 @@ async def get_current_user_from_session(request: Request) -> Session:
             status_code=status.HTTP_302_FOUND,
             detail="Invalid or expired session. Redirecting to login.",
             headers={"Location": str(redirect_url)},
+        )
+    
+    return session
+
+
+async def get_current_user_from_websocket(websocket: WebSocket) -> Session:
+    """
+    Get current user from WebSocket connection using query parameters or headers
+    """
+    # Try to get session_id from query parameters first
+    session_id = websocket.query_params.get("session_id")
+    
+    # If not in query params, try headers
+    if not session_id:
+        session_id = websocket.headers.get("session-id")
+    
+    if not session_id:
+        # No session found, close the connection
+        await websocket.close(code=4001, reason="No session found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No session found"
+        )
+    
+    session = await service_locator.session_manager.get_session(session_id)
+    if session is None:
+        # Invalid or expired session, close the connection
+        await websocket.close(code=4001, reason="Invalid or expired session")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session"
         )
     
     return session
@@ -102,6 +134,8 @@ async def lifespan(app : FastAPI)-> AsyncGenerator[Any, None]:
     db_url = "sqlite+aiosqlite:///read_model.db"
     public_read_facade = PublicReadFacade(db_url)
     club_read_facade = ClubReadFacade(db_url)
+    websocket_manager = WebSocketManager()
+    service_locator.websocket_manager = websocket_manager
     event_store = JsonFileEventStore("./event_store.json", [public_read_facade, club_read_facade])
     service_locator.public_read_facade = public_read_facade
     service_locator.club_read_facade = club_read_facade

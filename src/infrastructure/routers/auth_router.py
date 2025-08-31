@@ -168,3 +168,9 @@ async def logout(
 @router.get("/me")
 async def me(session: Session = Depends(get_current_user_from_session)) -> Session:
     return session
+
+@router.get("/session")
+async def get_session(session_id: Annotated[str | None, Cookie()] = None) -> dict:
+    return {
+        "session_id": session_id
+    }

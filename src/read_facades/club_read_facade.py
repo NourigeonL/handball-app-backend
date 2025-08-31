@@ -72,3 +72,8 @@ class ClubReadFacade(IReadFacade):
         async with self.async_session_maker() as session:
             result = await session.execute(select(Player).where(Player.club_id == club_id, or_(Player.first_name.ilike(f"%{search_query}%"), Player.last_name.ilike(f"%{search_query}%"), Player.license_number.ilike(f"%{search_query}%"))).order_by(Player.last_name, Player.first_name))
             return [CollectivePlayerDTO(player_id=player.id, first_name=player.first_name, last_name=player.last_name, gender=player.gender, date_of_birth=player.date_of_birth, license_number=player.license_number, license_type=player.license_type) for player in result.scalars().all()]
+
+    async def search_unassigned_players_in_collective(self, club_id: str, collective_id: str, search_query: str) -> list[CollectivePlayerDTO]:
+        async with self.async_session_maker() as session:
+            result = await session.execute(select(Player).where(Player.club_id == club_id, Player.id.notin_(select(CollectivePlayer.player_id).where(CollectivePlayer.collective_id == collective_id)), or_(Player.first_name.ilike(f"%{search_query}%"), Player.last_name.ilike(f"%{search_query}%"), Player.license_number.ilike(f"%{search_query}%"))).order_by(Player.last_name, Player.first_name))
+            return [CollectivePlayerDTO(player_id=player.id, first_name=player.first_name, last_name=player.last_name, gender=player.gender, date_of_birth=player.date_of_birth, license_number=player.license_number, license_type=player.license_type) for player in result.scalars().all()]

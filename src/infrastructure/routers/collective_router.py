@@ -1,6 +1,6 @@
 from typing import Annotated
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from httpx import get
 from pydantic import BaseModel
@@ -87,3 +87,11 @@ async def get_collective_players(
     per_page: int = 10
 ) -> PaginatedDTO[CollectivePlayerDTO]:
     return await service_locator.club_read_facade.get_collective_players(current_user.club_id, collective_id, page, per_page)
+
+@router.get("/{collective_id}/unassigned-players/search")
+async def get_unassigned_players(
+    collective_id: str,
+    q : str = Query(default=""),
+    current_user: Session = Depends(get_current_user_from_session),
+) -> list[CollectivePlayerDTO]:
+    return await service_locator.club_read_facade.search_unassigned_players_in_collective(current_user.club_id, collective_id, q)

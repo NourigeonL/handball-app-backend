@@ -1,11 +1,13 @@
 from enum import Enum
 from datetime import datetime, date
 from typing import Optional
+from dataclasses import dataclass
 
 class LicenseType(str, Enum):
     A = "A"
     B = "B"
     C = "C"
+    D = "D"
 
 class StaffMemberRole(str,Enum):
     COACH = "COACH"
@@ -42,123 +44,90 @@ class TrainingSessionPlayerStatus(str,Enum):
     LATE = "LATE"
     ABSENT_WITHOUT_REASON = "ABSENT_WITHOUT_REASON"
 
-class Season(str, Enum):
-    SEASON_2024_2025 = "2024/2025"
-    SEASON_2025_2026 = "2025/2026"
-    SEASON_2026_2027 = "2026/2027"
-    SEASON_2027_2028 = "2027/2028"
-    SEASON_2028_2029 = "2028/2029"
-    SEASON_2029_2030 = "2029/2030"
-    SEASON_2030_2031 = "2030/2031"
+@dataclass(frozen=True)
+class Season:
+    start_year: int
+    end_year: int
     
-    def __lt__(self, other):
+    @property
+    def value(self) -> str:
+        return f"{self.start_year}/{self.end_year}"
+    
+    @property
+    def display_name(self) -> str:
+        return f"Season {self.value}"
+    
+    @classmethod
+    def current(cls) -> 'Season':
+        """Get the current season based on current date"""
+        now = datetime.now()
+        # Handball seasons typically start in August/September
+        # If we're in the first half of the year, we're still in the previous season
+        if now.month < 8:
+            start_year = now.year - 1
+        else:
+            start_year = now.year
+        return cls(start_year, start_year + 1)
+    
+    @classmethod
+    def from_year(cls, year: int) -> 'Season':
+        """Get season from a specific year (returns the season that contains that year)"""
+        return cls(year, year + 1)
+    
+    @classmethod
+    def next_season(cls, current: 'Season') -> 'Season':
+        """Get the next season after the current one"""
+        return cls(current.start_year + 1, current.end_year + 1)
+    
+    @classmethod
+    def previous_season(cls, current: 'Season') -> 'Season':
+        """Get the previous season before the current one"""
+        return cls(current.start_year - 1, current.end_year - 1)
+    
+    def is_current(self) -> bool:
+        """Check if this is the current season"""
+        return self == self.current()
+    
+    def is_future(self) -> bool:
+        """Check if this is a future season"""
+        return self.start_year > self.current().start_year
+    
+    def is_past(self) -> bool:
+        """Check if this is a past season"""
+        return self.start_year < self.current().start_year
+    
+    def __lt__(self, other: 'Season') -> bool:
         """Enable comparison between seasons"""
         if not isinstance(other, Season):
             return NotImplemented
         return self.start_year < other.start_year
     
-    def __le__(self, other):
+    def __le__(self, other: 'Season') -> bool:
         """Enable <= comparison between seasons"""
         if not isinstance(other, Season):
             return NotImplemented
         return self.start_year <= other.start_year
     
-    def __gt__(self, other):
+    def __gt__(self, other: 'Season') -> bool:
         """Enable > comparison between seasons"""
         if not isinstance(other, Season):
             return NotImplemented
         return self.start_year > other.start_year
     
-    def __ge__(self, other):
+    def __ge__(self, other: 'Season') -> bool:
         """Enable >= comparison between seasons"""
         if not isinstance(other, Season):
             return NotImplemented
         return self.start_year >= other.start_year
     
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """Enable == comparison between seasons"""
         if not isinstance(other, Season):
             return NotImplemented
         return self.start_year == other.start_year
     
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         """Enable != comparison between seasons"""
         if not isinstance(other, Season):
             return NotImplemented
         return self.start_year != other.start_year
-    
-    @property
-    def start_year(self) -> int:
-        """Get the start year of the season"""
-        return int(self.value.split('/')[0])
-    
-    @property
-    def end_year(self) -> int:
-        """Get the end year of the season"""
-        return int(self.value.split('/')[1])
-    
-    @property
-    def display_name(self) -> str:
-        """Get a display-friendly name for the season"""
-        return f"Season {self.value}"
-    
-    @classmethod
-    def from_year(cls, year: int) -> Optional['Season']:
-        """Get season from a specific year (returns the season that contains that year)"""
-        for season in cls:
-            if season.start_year <= year <= season.end_year:
-                return season
-        return None
-    
-    @classmethod
-    def current_season(cls) -> 'Season':
-        """Get the current season based on current date"""
-        current_year = datetime.now().year
-        current_month = datetime.now().month
-        
-        # Handball seasons typically start in August/September
-        # If we're in the first half of the year, we're still in the previous season
-        if current_month < 8:
-            current_year -= 1
-        print(f"current_year: {current_year}")
-        season = cls.from_year(current_year)
-        if season is None:
-            # Fallback to the most recent season
-            return max(cls)
-        return season
-    
-    @classmethod
-    def next_season(cls, current: 'Season') -> Optional['Season']:
-        """Get the next season after the current one"""
-        seasons = list(cls)
-        try:
-            current_index = seasons.index(current)
-            if current_index < len(seasons) - 1:
-                return seasons[current_index + 1]
-        except ValueError:
-            pass
-        return None
-    
-    @classmethod
-    def previous_season(cls, current: 'Season') -> Optional['Season']:
-        """Get the previous season before the current one"""
-        seasons = list(cls)
-        try:
-            current_index = seasons.index(current)
-            if current_index > 0:
-                return seasons[current_index - 1]
-        except ValueError:
-            pass
-        return None
-    
-    def is_current(self) -> bool:
-        """Check if this is the current season"""
-        return self == self.current_season()
-    
-    def is_future(self) -> bool:
-        """Check if this is a future season"""
-        return self > self.current_season()
-    
-    def is_past(self) -> bool:
-        """Check if this is a past season"""
-        return self < self.current_season()

@@ -21,7 +21,6 @@ class RegisterPlayerRequest(BaseModel):
     date_of_birth: date
     license_number: str | None = None
     license_type: LicenseType | None = None
-    season: Season = Season.current_season()
 
 @router.post("/register")
 async def register_player(
@@ -37,7 +36,7 @@ async def register_player(
         date_of_birth=register_player_request.date_of_birth,
         license_number=register_player_request.license_number,
         license_type=register_player_request.license_type,
-        season=register_player_request.season))
+        season=Season.current()))
     return JSONResponse(status_code=201, content={"message": "Player registered successfully"})
 
 @router.get("")

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from starlette.responses import JSONResponse
 from src.application.club.commands import CreateClubCommand
 from src.dependencies import get_current_user_from_session, check_club_access
+from src.read_facades.dtos import PublicClubDTO
 from src.service_locator import service_locator
 from src.infrastructure.session_manager import Session
 from src.common.exceptions import GenericError
@@ -33,7 +34,7 @@ async def create_club(
     return JSONResponse(status_code=201, content={"message": "Club created successfully"})
 
 @router.get("/my-clubs")
-async def get_club_list(current_user: Session = Depends(get_current_user_from_session)):
+async def get_club_list(current_user: Session = Depends(get_current_user_from_session)) -> list[PublicClubDTO]:
     return await service_locator.public_read_facade.get_user_clubs(current_user.user_id)
 
 

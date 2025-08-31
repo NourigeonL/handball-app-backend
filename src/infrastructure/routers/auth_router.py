@@ -93,7 +93,7 @@ async def frontend_auth(request: FrontendAuthRequest):
         # Authenticate user using the Google ID token
         user = await service_locator.auth_service.authenticate_user_from_frontend(request.id_token)
         
-        session = await service_locator.session_manager.create_session(Session(user_id=user.user_id))
+        session = await service_locator.session_manager.create_session(Session(user_id=user.user_id, google_id_token=request.id_token))
         
         response = JSONResponse(
             content={

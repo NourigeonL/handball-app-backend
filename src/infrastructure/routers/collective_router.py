@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from httpx import get
 from pydantic import BaseModel
 from src.dependencies import check_club_access, get_current_user_from_session
+from src.read_facades.dtos import CollectiveListDTO, CollectivePlayerDTO
 from src.service_locator import service_locator
 from src.application.collective.commands import CreateCollectiveCommand, AddPlayerToCollectiveCommand, RemovePlayerFromCollectiveCommand
 from src.infrastructure.session_manager import Session
@@ -66,12 +67,12 @@ async def remove_player_from_collective(
 @router.get("")
 async def get_collective_list(
     current_user: Session = Depends(get_current_user_from_session)
-):
+) -> list[CollectiveListDTO]:
     return await service_locator.club_read_facade.get_collective_list(current_user.club_id)
 
 @router.get("/{collective_id}/players")
 async def get_collective_players(
     collective_id: str,
     current_user: Session = Depends(get_current_user_from_session)
-):
+) -> list[CollectivePlayerDTO]:
     return await service_locator.club_read_facade.get_collective_players(current_user.club_id, collective_id)

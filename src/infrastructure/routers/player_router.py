@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from src.application.player.commands import RegisterPlayerCommand
 from src.common.enums import Gender, LicenseType, Season
 from src.dependencies import get_current_user_from_session
+from src.read_facades.dtos import ClubPlayerDTO
 from src.service_locator import service_locator
 from src.infrastructure.session_manager import Session
 
@@ -42,7 +43,7 @@ async def register_player(
 @router.get("")
 async def get_player_list(
     current_user: Session = Depends(get_current_user_from_session)
-):
+) -> list[ClubPlayerDTO]:
     return await service_locator.club_read_facade.club_players(current_user.club_id)
 
 

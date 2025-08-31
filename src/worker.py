@@ -179,6 +179,7 @@ class Worker:
         if collective:
             collective.number_of_players = collective.number_of_players + 1
             await session.merge(collective)
+        await service_locator.websocket_manager.send_message(collective.club_id, {"type": "club_collective_list_updated"})
 
     @dispatch(collective_events.PlayerRemovedFromCollective, AsyncSession)
     async def handle(self, event: collective_events.PlayerRemovedFromCollective, session: AsyncSession) -> None:
@@ -186,9 +187,10 @@ class Worker:
         collective_player = await session.execute(select(CollectivePlayer).where(CollectivePlayer.collective_id == event.collective_id, CollectivePlayer.player_id == event.player_id))
         collective_player = collective_player.scalar_one_or_none()
         if collective_player:
-            session.delete(collective_player)
+            await session.delete(collective_player)
             await session.commit()
         collective = await session.get(Collective, event.collective_id)
         if collective:
             collective.number_of_players = collective.number_of_players - 1
             await session.merge(collective)
+        await service_locator.websocket_manager.send_message(collective.club_id, {"type": "club_collective_list_updated"})

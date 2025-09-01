@@ -99,7 +99,7 @@ class ClubReadFacade(IReadFacade):
 
     async def search_players_not_in_training_session(self, club_id: str, training_session_id: str, collective_id: str | None = None, search_query: str = "") -> list[ClubPlayerDTO]:
         async with self.async_session_maker() as session:
-            stmt = select(Player).join(TrainingSessionPlayer).where(Player.club_id == club_id, Player.id.notin_(select(TrainingSessionPlayer.player_id).where(TrainingSessionPlayer.training_session_id == training_session_id)))
+            stmt = select(Player).where(Player.club_id == club_id, Player.id.notin_(select(TrainingSessionPlayer.player_id).where(TrainingSessionPlayer.training_session_id == training_session_id)))
             if collective_id:
                 stmt = stmt.where(Player.id.in_(select(CollectivePlayer.player_id).where(CollectivePlayer.collective_id == collective_id)))
             if search_query:

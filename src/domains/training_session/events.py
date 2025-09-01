@@ -34,3 +34,14 @@ class PlayerTrainingSessionStatusChangedToLate(IEvent):
     arrival_time: str
     with_reason: bool = False
     reason: str | None = None
+
+@dataclass
+class TrainingSessionCanceled(IEvent):
+    training_session_id: str
+    club_id: str
+
+@dataclass
+class PlayerRemovedFromTrainingSession(IEvent):
+    training_session_id: str
+    player_id: str
+    club_id: str

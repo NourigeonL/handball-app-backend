@@ -18,3 +18,9 @@ class ChangePlayerTrainingSessionStatusCommand(Command):
     reason: str | None = None
     arrival_time: datetime | None = None
     with_reason: bool = False
+
+@dataclass
+class RemovePlayerFromTrainingSessionCommand(Command):
+    club_id: str
+    training_session_id: str
+    player_id: str

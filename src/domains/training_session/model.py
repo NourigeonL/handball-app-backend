@@ -6,7 +6,7 @@ from src.common.eventsourcing.aggregates import AggregateRoot
 from datetime import datetime
 from src.common.eventsourcing.exceptions import InvalidOperationError
 from src.common.guid import guid
-from src.domains.training_session.events import PlayerTrainingSessionStatusChangedToAbsent, PlayerTrainingSessionStatusChangedToLate, PlayerTrainingSessionStatusChangedToPresent, TrainingSessionCreated
+from src.domains.training_session.events import PlayerRemovedFromTrainingSession, PlayerTrainingSessionStatusChangedToAbsent, PlayerTrainingSessionStatusChangedToLate, PlayerTrainingSessionStatusChangedToPresent, TrainingSessionCanceled, TrainingSessionCreated
 
 class TrainingSessionCreate(BaseModel):
     actor_id: str
@@ -28,6 +28,7 @@ class TrainingSession(AggregateRoot):
     def __init__(self, create: TrainingSessionCreate | None = None):
         super().__init__()
         self.players = {}
+        self.cancelled = False
         if create:
             self._apply_change(TrainingSessionCreated(
                 training_session_id=guid(),
@@ -37,7 +38,20 @@ class TrainingSession(AggregateRoot):
                 actor_id=create.actor_id,
             ))
 
+    def remove_player(self, actor_id: str, player_id: str):
+        if self.cancelled:
+            raise InvalidOperationError("Training session is cancelled")
+        if player_id not in self.players:
+            raise InvalidOperationError(f"Player {player_id} not in training session {self.id}")
+        self._apply_change(PlayerRemovedFromTrainingSession(
+            training_session_id=self.id,
+            player_id=player_id,
+            club_id=self.club_id,
+            actor_id=actor_id))
+
     def change_player_status(self, actor_id: str, player_id: str, status: TrainingSessionPlayerStatus, reason: str | None = None, arrival_time: datetime | None = None, with_reason: bool = False):
+        if self.cancelled:
+            raise InvalidOperationError("Training session is cancelled")
         match status:
             case TrainingSessionPlayerStatus.PRESENT:
                 self._apply_change(PlayerTrainingSessionStatusChangedToPresent(
@@ -85,3 +99,12 @@ class TrainingSession(AggregateRoot):
     @dispatch(PlayerTrainingSessionStatusChangedToLate)
     def _apply(self, event: PlayerTrainingSessionStatusChangedToLate):
         self.players[event.player_id] = TrainingSessionPlayerStatus.LATE
+
+    @dispatch(TrainingSessionCanceled)
+    def _apply(self, event: TrainingSessionCanceled):
+        self.players = {}
+        self.cancelled = True
+
+    @dispatch(PlayerRemovedFromTrainingSession)
+    def _apply(self, event: PlayerRemovedFromTrainingSession):
+        self.players.pop(event.player_id)

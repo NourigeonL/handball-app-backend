@@ -1,5 +1,5 @@
 from multipledispatch import dispatch
-from src.application.training_session.commands import ChangePlayerTrainingSessionStatusCommand, CreateTrainingSessionCommand
+from src.application.training_session.commands import ChangePlayerTrainingSessionStatusCommand, CreateTrainingSessionCommand, RemovePlayerFromTrainingSessionCommand
 from src.common.cqrs.messages import CommandHandler, IAuthService, IEventPublisher
 from src.common.eventsourcing.exceptions import InvalidOperationError
 from src.common.eventsourcing.repositories import IEventStoreRepository
@@ -35,4 +35,10 @@ class TrainingSessionService(CommandHandler):
             raise InvalidOperationError("Player is not in the club")
         
         training_session.change_player_status(actor_id=command.actor_id, player_id=command.player_id, status=command.status, reason=command.reason, with_reason=command.with_reason, arrival_time=command.arrival_time)
+        await self._training_session_repo.save(training_session, training_session.version)
+
+    @dispatch(RemovePlayerFromTrainingSessionCommand)
+    async def _handle(self, command: RemovePlayerFromTrainingSessionCommand) -> None:
+        training_session = await self._training_session_repo.get_by_id(command.training_session_id)
+        training_session.remove_player(actor_id=command.actor_id, player_id=command.player_id)
         await self._training_session_repo.save(training_session, training_session.version)

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from src.application.training_session.commands import ChangePlayerTrainingSessionStatusCommand, CreateTrainingSessionCommand
+from src.application.training_session.commands import ChangePlayerTrainingSessionStatusCommand, CreateTrainingSessionCommand, RemovePlayerFromTrainingSessionCommand
 from src.common.enums import TrainingSessionPlayerStatus
 from src.dependencies import get_current_user_from_session
 from src.read_facades.dtos import ClubPlayerDTO, TrainingSessionDTO, TrainingSessionPlayerDTO
@@ -115,3 +115,15 @@ async def change_player_status(
         arrival_time=change_player_status_late_request.arrival_time,
         with_reason=change_player_status_late_request.with_reason,
         reason=change_player_status_late_request.reason))
+
+@router.post("/{training_session_id}/remove-player/{player_id}")
+async def remove_player_from_training_session(
+    training_session_id: str,
+    player_id: str,
+    current_user: Session = Depends(get_current_user_from_session)
+):
+    await service_locator.training_session_service.handle(RemovePlayerFromTrainingSessionCommand(
+        actor_id=current_user.user_id,
+        club_id=current_user.club_id,
+        training_session_id=training_session_id,
+        player_id=player_id))

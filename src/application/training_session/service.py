@@ -32,5 +32,5 @@ class TrainingSessionService(CommandHandler):
         if player.club_id != command.club_id:
             raise InvalidOperationError("Player is not in the club")
         
-        training_session.change_player_status(command.actor_id, command.player_id, command.status)
+        training_session.change_player_status(actor_id=command.actor_id, player_id=command.player_id, status=command.status, reason=command.reason, with_reason=command.with_reason, arrival_time=command.arrival_time)
         await self._training_session_repo.save(training_session, -1)

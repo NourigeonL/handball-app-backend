@@ -15,3 +15,6 @@ class ChangePlayerTrainingSessionStatusCommand(Command):
     training_session_id: str
     player_id: str
     status: TrainingSessionPlayerStatus
+    reason: str | None = None
+    arrival_time: datetime | None = None
+    with_reason: bool = False

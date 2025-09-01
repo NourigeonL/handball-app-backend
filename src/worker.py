@@ -4,6 +4,7 @@ import asyncio
 from time import sleep
 
 from multipledispatch import dispatch
+from src.common.enums import TrainingSessionPlayerStatus
 from src.common.eventsourcing.event import IEvent
 from src.common.loggers import app_logger
 from src.common.eventsourcing.event_stores import IEventStore
@@ -14,7 +15,8 @@ from src.domains.club import events as club_events
 from src.domains.player import events as player_events
 from src.domains.user import events as user_events
 from src.domains.collective import events as collective_events
-from src.infrastructure.storages.sql_model import Club, Collective, CollectivePlayer, LastRecordedEventPosition, Base, Player, User
+from src.domains.training_session import events as training_session_events
+from src.infrastructure.storages.sql_model import Club, Collective, CollectivePlayer, LastRecordedEventPosition, Base, Player, TrainingSession, TrainingSessionPlayer, User
 from src.service_locator import service_locator
 
 class Worker:
@@ -194,3 +196,95 @@ class Worker:
             collective.number_of_players = collective.number_of_players - 1
             await session.merge(collective)
         await service_locator.websocket_manager.send_message(collective.club_id, {"type": "club_collective_list_updated"})
+
+    @dispatch(training_session_events.TrainingSessionCreated, AsyncSession)
+    async def handle(self, event: training_session_events.TrainingSessionCreated, session: AsyncSession) -> None:
+        app_logger.info(f"TrainingSessionCreated: {event.training_session_id}")
+        training_session = TrainingSession(id=event.training_session_id, club_id=event.club_id, start_time=event.start_time, end_time=event.end_time)
+        session.add(training_session)
+        await session.merge(training_session)
+        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_training_session_list_updated"})
+
+    @dispatch(training_session_events.PlayerTrainingSessionStatusChangedToPresent, AsyncSession)
+    async def handle(self, event: training_session_events.PlayerTrainingSessionStatusChangedToPresent, session: AsyncSession) -> None:
+        training_session = await session.get(TrainingSession, event.training_session_id)
+        training_session_player = await session.execute(select(TrainingSessionPlayer).where(TrainingSessionPlayer.training_session_id == event.training_session_id, TrainingSessionPlayer.player_id == event.player_id))
+        training_session_player = training_session_player.scalar_one_or_none()
+        if training_session_player:
+            match training_session_player.status:
+                case TrainingSessionPlayerStatus.PRESENT:
+                    return
+                case TrainingSessionPlayerStatus.ABSENT:
+                    training_session.number_of_players_absent -= 1
+                case TrainingSessionPlayerStatus.LATE:
+                    training_session.number_of_players_late -= 1
+            await session.merge(training_session_player)
+            training_session_player.status = TrainingSessionPlayerStatus.PRESENT
+            training_session_player.reason = None
+            training_session_player.with_reason = False
+            training_session_player.arrival_time = None
+            await session.merge(training_session_player)
+        else:
+            training_session_player = TrainingSessionPlayer(training_session_id=event.training_session_id, player_id=event.player_id, status=TrainingSessionPlayerStatus.PRESENT)
+        app_logger.info(f"PlayerTrainingSessionStatusChangedToPresent: {event.training_session_id}")
+        
+        training_session.number_of_players_present += 1
+        await session.merge(training_session)
+        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_training_session_updated"})
+        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_training_session_list_updated"})
+        
+    @dispatch(training_session_events.PlayerTrainingSessionStatusChangedToAbsent, AsyncSession)
+    async def handle(self, event: training_session_events.PlayerTrainingSessionStatusChangedToAbsent, session: AsyncSession) -> None:
+        training_session = await session.get(TrainingSession, event.training_session_id)
+        training_session_player = await session.execute(select(TrainingSessionPlayer).where(TrainingSessionPlayer.training_session_id == event.training_session_id, TrainingSessionPlayer.player_id == event.player_id))
+        training_session_player = training_session_player.scalar_one_or_none()
+        if training_session_player:
+            match training_session_player.status:
+                case TrainingSessionPlayerStatus.PRESENT:
+                    training_session.number_of_players_present -= 1
+                case TrainingSessionPlayerStatus.ABSENT:
+                    return
+                case TrainingSessionPlayerStatus.LATE:
+                    training_session.number_of_players_late -= 1
+            await session.merge(training_session_player)
+            training_session_player.status = TrainingSessionPlayerStatus.ABSENT
+            training_session_player.reason = event.reason
+            training_session_player.with_reason = event.with_reason
+            training_session_player.arrival_time = None
+            await session.merge(training_session_player)
+        else:
+            training_session_player = TrainingSessionPlayer(training_session_id=event.training_session_id, player_id=event.player_id, status=TrainingSessionPlayerStatus.ABSENT, reason=event.reason, with_reason=event.with_reason)
+        app_logger.info(f"PlayerTrainingSessionStatusChangedToAbsent: {event.training_session_id}")
+        
+        training_session.number_of_players_absent += 1
+        await session.merge(training_session)
+        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_training_session_updated"})
+        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_training_session_list_updated"})
+    
+    @dispatch(training_session_events.PlayerTrainingSessionStatusChangedToLate, AsyncSession)
+    async def handle(self, event: training_session_events.PlayerTrainingSessionStatusChangedToLate, session: AsyncSession) -> None:
+        training_session = await session.get(TrainingSession, event.training_session_id)
+        training_session_player = await session.execute(select(TrainingSessionPlayer).where(TrainingSessionPlayer.training_session_id == event.training_session_id, TrainingSessionPlayer.player_id == event.player_id))
+        training_session_player = training_session_player.scalar_one_or_none()
+        if training_session_player:
+            match training_session_player.status:
+                case TrainingSessionPlayerStatus.PRESENT:
+                    training_session.number_of_players_present -= 1
+                case TrainingSessionPlayerStatus.ABSENT:
+                    training_session.number_of_players_absent -= 1
+                case TrainingSessionPlayerStatus.LATE:
+                    training_session.number_of_players_late -= 1
+            await session.merge(training_session_player)
+            training_session_player.status = TrainingSessionPlayerStatus.LATE
+            training_session_player.reason = event.reason
+            training_session_player.with_reason = event.with_reason
+            training_session_player.arrival_time = event.arrival_time
+            await session.merge(training_session_player)
+        else:
+            training_session_player = TrainingSessionPlayer(training_session_id=event.training_session_id, player_id=event.player_id, status=TrainingSessionPlayerStatus.LATE, reason=event.reason, with_reason=event.with_reason, arrival_time=event.arrival_time)
+        app_logger.info(f"PlayerTrainingSessionStatusChangedToLate: {event.training_session_id}")
+        
+        training_session.number_of_players_late += 1
+        await session.merge(training_session)
+        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_training_session_updated"})
+        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_training_session_list_updated"})

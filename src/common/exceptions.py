@@ -15,3 +15,7 @@ class GenericError(Exception):
 class AccessDeniedError(GenericError):
     def __init__(self, message : str = "", status_code : int = status.HTTP_403_FORBIDDEN) -> None:
         super().__init__(message, status_code)
+
+class NotFoundError(GenericError):
+    def __init__(self, message : str = "", status_code : int = status.HTTP_404_NOT_FOUND) -> None:
+        super().__init__(message, status_code)

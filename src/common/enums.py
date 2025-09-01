@@ -42,7 +42,6 @@ class TrainingSessionPlayerStatus(str,Enum):
     PRESENT = "PRESENT"
     ABSENT = "ABSENT"
     LATE = "LATE"
-    ABSENT_WITHOUT_REASON = "ABSENT_WITHOUT_REASON"
 
 @dataclass(frozen=True)
 class Season:

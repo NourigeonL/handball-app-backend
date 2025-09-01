@@ -3,16 +3,16 @@ from multipledispatch import dispatch
 from pydantic import BaseModel
 from src.common.enums import TrainingSessionPlayerStatus
 from src.common.eventsourcing.aggregates import AggregateRoot
-from datetime import date, datetime
+from datetime import datetime
+from src.common.eventsourcing.exceptions import InvalidOperationError
 from src.common.guid import guid
-from src.domains.training_session.events import PlayerTrainingSessionStatusChanged, TrainingSessionCreated
+from src.domains.training_session.events import PlayerTrainingSessionStatusChangedToAbsent, PlayerTrainingSessionStatusChangedToLate, PlayerTrainingSessionStatusChangedToPresent, TrainingSessionCreated
 
 class TrainingSessionCreate(BaseModel):
     actor_id: str
     club_id: str
-    date: date
-    start_time: datetime | None = None
-    end_time: datetime | None = None
+    start_time: datetime
+    end_time: datetime
 
 
 class TrainingSession(AggregateRoot):
@@ -32,30 +32,56 @@ class TrainingSession(AggregateRoot):
             self._apply_change(TrainingSessionCreated(
                 training_session_id=guid(),
                 club_id=create.club_id,
-                date=create.date.isoformat(),
-                start_time=create.start_time.isoformat() if create.start_time else None,
-                end_time=create.end_time.isoformat() if create.end_time else None,
+                start_time=create.start_time.isoformat(),
+                end_time=create.end_time.isoformat(),
                 actor_id=create.actor_id,
             ))
 
-    def change_player_status(self, actor_id: str, player_id: str, status: TrainingSessionPlayerStatus):
-        self._apply_change(PlayerTrainingSessionStatusChanged(
-            training_session_id=self.id,
-            player_id=player_id,
-            status=status,
-            actor_id=actor_id,
-        ))
-
-
+    def change_player_status(self, actor_id: str, player_id: str, status: TrainingSessionPlayerStatus, reason: str | None = None, arrival_time: datetime | None = None, with_reason: bool = False):
+        match status:
+            case TrainingSessionPlayerStatus.PRESENT:
+                self._apply_change(PlayerTrainingSessionStatusChangedToPresent(
+                    training_session_id=self.id,
+                    player_id=player_id,
+                    actor_id=actor_id,
+                ))
+            case TrainingSessionPlayerStatus.ABSENT:
+                self._apply_change(PlayerTrainingSessionStatusChangedToAbsent(
+                    training_session_id=self.id,
+                    player_id=player_id,
+                    reason=reason,
+                    with_reason=with_reason,
+                    actor_id=actor_id,
+                ))
+            case TrainingSessionPlayerStatus.LATE:
+                if not arrival_time:
+                    raise InvalidOperationError("Arrival time is required")
+                if arrival_time > self.end_time or arrival_time < self.start_time:
+                    raise InvalidOperationError("Arrival time is not in the training session time")
+                self._apply_change(PlayerTrainingSessionStatusChangedToLate(
+                    training_session_id=self.id,
+                    player_id=player_id,
+                    arrival_time=arrival_time.isoformat(),
+                    actor_id=actor_id,
+                    with_reason=with_reason,
+                    reason=reason,
+                ))
     
     @dispatch(TrainingSessionCreated)
     def _apply(self, event: TrainingSessionCreated):
         self.__id = event.training_session_id
         self.club_id = event.club_id
-        self.date = event.date
-        self.start_time = event.start_time
-        self.end_time = event.end_time
+        self.start_time = datetime.fromisoformat(event.start_time)
+        self.end_time = datetime.fromisoformat(event.end_time)
 
-    @dispatch(PlayerTrainingSessionStatusChanged)
-    def _apply(self, event: PlayerTrainingSessionStatusChanged):
-        self.players[event.player_id] = event.status
+    @dispatch(PlayerTrainingSessionStatusChangedToPresent)
+    def _apply(self, event: PlayerTrainingSessionStatusChangedToPresent):
+        self.players[event.player_id] = TrainingSessionPlayerStatus.PRESENT
+
+    @dispatch(PlayerTrainingSessionStatusChangedToAbsent)
+    def _apply(self, event: PlayerTrainingSessionStatusChangedToAbsent):
+        self.players[event.player_id] = TrainingSessionPlayerStatus.ABSENT
+
+    @dispatch(PlayerTrainingSessionStatusChangedToLate)
+    def _apply(self, event: PlayerTrainingSessionStatusChangedToLate):
+        self.players[event.player_id] = TrainingSessionPlayerStatus.LATE

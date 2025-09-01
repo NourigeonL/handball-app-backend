@@ -1,14 +1,13 @@
 from dataclasses import dataclass
 from src.common.cqrs.messages import Command
 from src.common.enums import TrainingSessionPlayerStatus
-from datetime import date, datetime
+from datetime import datetime
 
 @dataclass
 class CreateTrainingSessionCommand(Command):
     club_id: str
-    date: date
-    start_time: datetime | None = None
-    end_time: datetime | None = None
+    start_time: datetime
+    end_time: datetime
 
 @dataclass
 class ChangePlayerTrainingSessionStatusCommand(Command):

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from src.application.auth.service import AuthService
 from src.application.collective.service import CollectiveService
 from src.application.player.service import PlayerService
+from src.application.training_session.service import TrainingSessionService
 from src.common.eventsourcing.event_stores import IEventStore, JsonFileEventStore
 from src.common.cqrs.messages import IEventPublisher
 from src.common.eventsourcing.repositories import EventStoreRepository
@@ -14,6 +15,7 @@ from src.domains.club.model import Club
 from src.domains.collective.model import Collective
 from src.domains.federation.model import Federation
 from src.domains.player.model import Player
+from src.domains.training_session.model import TrainingSession
 from src.domains.user.model import User
 from src.infrastructure.session_manager import Session, SessionManager
 from src.infrastructure.storages.auth_repository import AuthRepository
@@ -144,14 +146,17 @@ async def lifespan(app : FastAPI)-> AsyncGenerator[Any, None]:
     auth_repo = AuthRepository("./auth_repository.json")
     user_repo = EventStoreRepository(event_store, User)
     federation_repo = EventStoreRepository(event_store, Federation)
+    training_session_repo = EventStoreRepository(event_store, TrainingSession)
+    player_repo = EventStoreRepository(event_store, Player)
     auth_service = AuthService(auth_repo, user_repo, club_repo)
     worker = Worker(event_store, db_url)
     service_locator.club_service = ClubService(auth_service, service_locator.event_publisher, club_repo)
-    player_repo = EventStoreRepository(event_store, Player)
     service_locator.player_service = PlayerService(auth_service, service_locator.event_publisher, player_repo, club_repo, federation_repo)
     collective_repo = EventStoreRepository(event_store, Collective)
     service_locator.collective_service = CollectiveService(auth_service, service_locator.event_publisher, collective_repo, club_repo)
+    service_locator.training_session_service = TrainingSessionService(auth_service, service_locator.event_publisher, training_session_repo, player_repo)
     service_locator.auth_service = auth_service
+
     service_locator.session_manager = SessionManager()
     asyncio.create_task(worker.start())
     yield

@@ -9,6 +9,7 @@ from src.infrastructure.routers.main_router import router as main_router
 from src.infrastructure.routers.player_router import router as player_router
 from src.infrastructure.routers.collective_router import router as collective_router
 from src.infrastructure.routers.public.public_router import router as public_router
+from src.infrastructure.routers.training_session_router import router as training_session_router
 from starlette.middleware.sessions import SessionMiddleware
 from src.settings import settings
 
@@ -32,6 +33,7 @@ def create_app() -> FastAPI:
     app.include_router(player_router)
     app.include_router(collective_router)
     app.include_router(public_router)
+    app.include_router(training_session_router)
     return app
 
 

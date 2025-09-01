@@ -18,7 +18,6 @@ class TrainingSessionService(CommandHandler):
         training_session = TrainingSession(create=TrainingSessionCreate(
             actor_id=command.actor_id,
             club_id=command.club_id,
-            date=command.date,
             start_time=command.start_time,
             end_time=command.end_time,
         ))

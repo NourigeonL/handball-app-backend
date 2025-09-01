@@ -4,11 +4,12 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import joinedload
 from src.common.eventsourcing.event import IEvent
+from src.common.exceptions import NotFoundError
 from src.domains.club.events import ClubCreated
 from src.domains.collective.events import CollectiveCreated, PlayerAddedToCollective, PlayerRemovedFromCollective
 from src.domains.player.events import PlayerRegistered
-from src.infrastructure.storages.sql_model import Club, Collective, CollectivePlayer, Player
-from src.read_facades.dtos import ClubDTO, ClubPlayerDTO, CollectiveDTO, CollectiveListDTO, CollectivePlayerDTO, UserClubAccessDTO
+from src.infrastructure.storages.sql_model import Club, Collective, CollectivePlayer, Player, TrainingSession, TrainingSessionPlayer
+from src.read_facades.dtos import ClubDTO, ClubPlayerDTO, CollectiveDTO, CollectiveListDTO, CollectivePlayerDTO, TrainingSessionDTO, TrainingSessionPlayerDTO, UserClubAccessDTO
 from src.read_facades.interface import IReadFacade
 from src.read_facades.pagination import PaginatedDTO, paginate
 
@@ -77,3 +78,31 @@ class ClubReadFacade(IReadFacade):
         async with self.async_session_maker() as session:
             result = await session.execute(select(Player).where(Player.club_id == club_id, Player.id.notin_(select(CollectivePlayer.player_id).where(CollectivePlayer.collective_id == collective_id)), or_(Player.first_name.ilike(f"%{search_query}%"), Player.last_name.ilike(f"%{search_query}%"), Player.license_number.ilike(f"%{search_query}%"))).order_by(Player.last_name, Player.first_name))
             return [CollectivePlayerDTO(player_id=player.id, first_name=player.first_name, last_name=player.last_name, gender=player.gender, date_of_birth=player.date_of_birth, license_number=player.license_number, license_type=player.license_type) for player in result.scalars().all()]
+
+    async def get_training_session(self, club_id: str, training_session_id: str) -> TrainingSessionDTO | None:
+        async with self.async_session_maker() as session:
+            result = await session.execute(select(TrainingSession).where(TrainingSession.id == training_session_id, TrainingSession.club_id == club_id))
+            training_session = result.scalar_one_or_none()
+            if training_session:
+                return TrainingSessionDTO(training_session_id=training_session.id, start_time=training_session.start_time, end_time=training_session.end_time, number_of_players_present=training_session.number_of_players_present, number_of_players_absent=training_session.number_of_players_absent, number_of_players_late=training_session.number_of_players_late )
+            raise NotFoundError(f"Training session {training_session_id} not found")
+
+    async def get_training_session_list(self, club_id: str, page: int = 0, per_page: int = 10) -> PaginatedDTO[TrainingSessionDTO]:
+        async with self.async_session_maker() as session:
+            result = await paginate(select(TrainingSession).where(TrainingSession.club_id == club_id).order_by(TrainingSession.start_time.desc()), page, per_page, session)
+            return PaginatedDTO(total_count=result.total_items, total_page=result.total_pages, count=len(result.items), page=page, results=[TrainingSessionDTO(training_session_id=training_session.id, start_time=training_session.start_time, end_time=training_session.end_time, number_of_players_present=training_session.number_of_players_present, number_of_players_absent=training_session.number_of_players_absent, number_of_players_late=training_session.number_of_players_late) for training_session in result.items])
+
+    async def get_training_session_players(self, club_id: str, training_session_id: str, page: int = 0, per_page: int = 10) -> PaginatedDTO[TrainingSessionPlayerDTO]:
+        async with self.async_session_maker() as session:
+            result = await paginate(select(TrainingSessionPlayer).options(joinedload(TrainingSessionPlayer.player), joinedload(TrainingSessionPlayer.training_session)).where(TrainingSessionPlayer.training_session_id == training_session_id, TrainingSession.club_id == club_id), page, per_page, session)
+            return PaginatedDTO(total_count=result.total_items, total_page=result.total_pages, count=len(result.items), page=page, results=[TrainingSessionPlayerDTO(training_session_id=training_session_player.training_session_id, player=ClubPlayerDTO(player_id=training_session_player.player.id, first_name=training_session_player.player.first_name, last_name=training_session_player.player.last_name, gender=training_session_player.player.gender, date_of_birth=training_session_player.player.date_of_birth, license_number=training_session_player.player.license_number, license_type=training_session_player.player.license_type), status=training_session_player.status) for training_session_player in result.items])
+
+    async def search_players_not_in_training_session(self, club_id: str, training_session_id: str, collective_id: str | None = None, search_query: str = "") -> list[TrainingSessionPlayerDTO]:
+        async with self.async_session_maker() as session:
+            stmt = select(Player).join(TrainingSessionPlayer).where(TrainingSessionPlayer.training_session_id == training_session_id, TrainingSession.club_id == club_id)
+            if collective_id:
+                stmt = stmt.where(Player.id.in_(select(CollectivePlayer.player_id).where(CollectivePlayer.collective_id == collective_id)))
+            if search_query:
+                stmt = stmt.where(or_(Player.first_name.ilike(f"%{search_query}%"), Player.last_name.ilike(f"%{search_query}%"), Player.license_number.ilike(f"%{search_query}%")))
+            result = await session.execute(stmt)
+            return [TrainingSessionPlayerDTO(training_session_id=training_session_player.training_session_id, player=ClubPlayerDTO(player_id=training_session_player.player.id, first_name=training_session_player.player.first_name, last_name=training_session_player.player.last_name, gender=training_session_player.player.gender, date_of_birth=training_session_player.player.date_of_birth, license_number=training_session_player.player.license_number, license_type=training_session_player.player.license_type), status=training_session_player.status) for training_session_player in result.scalars().all()]

@@ -1,5 +1,7 @@
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
+
+from src.common.enums import TrainingSessionPlayerStatus
 
 class Base(DeclarativeBase):
     pass
@@ -54,3 +56,25 @@ class CollectivePlayer(Base):
     player_id: Mapped[str] = mapped_column(ForeignKey(Player.id), primary_key=True)
     collective: Mapped[Collective] = relationship(back_populates="players")
     player: Mapped[Player] = relationship()
+
+class TrainingSession(Base):
+    __tablename__ = "training_session"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    club_id: Mapped[str] = mapped_column(ForeignKey(Club.id))
+    start_time: Mapped[str] = mapped_column(String)
+    end_time: Mapped[str] = mapped_column(String)
+    number_of_players_present: Mapped[int] = mapped_column(Integer, default=0)
+    number_of_players_absent: Mapped[int] = mapped_column(Integer, default=0)
+    number_of_players_late: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class TrainingSessionPlayer(Base):
+    __tablename__ = "training_session_player"
+    training_session_id: Mapped[str] = mapped_column(ForeignKey(TrainingSession.id), primary_key=True)
+    training_session: Mapped[TrainingSession] = relationship()
+    player_id: Mapped[str] = mapped_column(ForeignKey(Player.id), primary_key=True)
+    player: Mapped[Player] = relationship()
+    status: Mapped[TrainingSessionPlayerStatus] = mapped_column(String)
+    reason: Mapped[str] = mapped_column(String, nullable=True)
+    with_reason: Mapped[bool] = mapped_column(Boolean, default=False)
+    arrival_time: Mapped[str] = mapped_column(String, nullable=True)

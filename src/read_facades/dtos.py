@@ -1,6 +1,6 @@
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel
-from src.common.enums import Gender, LicenseType
+from src.common.enums import Gender, LicenseType, TrainingSessionPlayerStatus
 
 
 class PublicClubDTO(BaseModel):
@@ -72,3 +72,15 @@ class UserClubAccessDTO(BaseModel):
     name: str
     access_level: str  # "owner", "coach", "member", etc.
     can_manage: bool
+
+class TrainingSessionDTO(BaseModel):
+    training_session_id: str
+    start_time: datetime
+    end_time: datetime
+    number_of_players_present: int
+    number_of_players_absent: int
+    number_of_players_late: int
+
+class TrainingSessionPlayerDTO(BaseModel):
+    player: ClubPlayerDTO
+    status: TrainingSessionPlayerStatus

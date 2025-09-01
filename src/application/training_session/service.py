@@ -5,6 +5,7 @@ from src.common.eventsourcing.exceptions import InvalidOperationError
 from src.common.eventsourcing.repositories import IEventStoreRepository
 from src.domains.player.model import Player
 from src.domains.training_session.model import TrainingSession, TrainingSessionCreate
+from src.common.loggers import app_logger
 
 class TrainingSessionService(CommandHandler):
 
@@ -25,12 +26,13 @@ class TrainingSessionService(CommandHandler):
 
     @dispatch(ChangePlayerTrainingSessionStatusCommand)
     async def _handle(self, command: ChangePlayerTrainingSessionStatusCommand) -> None:
-        training_session = await self._training_session_repo.get_by_id(TrainingSession.to_stream_id(command.training_session_id))
+        training_session = await self._training_session_repo.get_by_id(command.training_session_id)
+        app_logger.info(f"Training session: {training_session.id} {training_session.club_id} {command.club_id}")
         if training_session.club_id != command.club_id:
             raise InvalidOperationError("Training session is not in the club")
-        player = await self._player_repo.get_by_id(Player.to_stream_id(command.player_id))
+        player = await self._player_repo.get_by_id(command.player_id)
         if player.club_id != command.club_id:
             raise InvalidOperationError("Player is not in the club")
         
         training_session.change_player_status(actor_id=command.actor_id, player_id=command.player_id, status=command.status, reason=command.reason, with_reason=command.with_reason, arrival_time=command.arrival_time)
-        await self._training_session_repo.save(training_session, -1)
+        await self._training_session_repo.save(training_session, training_session.version)

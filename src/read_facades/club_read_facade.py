@@ -94,12 +94,12 @@ class ClubReadFacade(IReadFacade):
 
     async def get_training_session_players(self, club_id: str, training_session_id: str, page: int = 0, per_page: int = 10) -> PaginatedDTO[TrainingSessionPlayerDTO]:
         async with self.async_session_maker() as session:
-            result = await paginate(select(TrainingSessionPlayer).options(joinedload(TrainingSessionPlayer.player), joinedload(TrainingSessionPlayer.training_session)).where(TrainingSessionPlayer.training_session_id == training_session_id, TrainingSession.club_id == club_id), page, per_page, session)
+            result = await paginate(select(TrainingSessionPlayer).join(TrainingSession).options(joinedload(TrainingSessionPlayer.player), joinedload(TrainingSessionPlayer.training_session)).where(TrainingSessionPlayer.training_session_id == training_session_id, TrainingSession.club_id == club_id), page, per_page, session)
             return PaginatedDTO(total_count=result.total_items, total_page=result.total_pages, count=len(result.items), page=page, results=[TrainingSessionPlayerDTO(training_session_id=training_session_player.training_session_id, player=ClubPlayerDTO(player_id=training_session_player.player.id, first_name=training_session_player.player.first_name, last_name=training_session_player.player.last_name, gender=training_session_player.player.gender, date_of_birth=training_session_player.player.date_of_birth, license_number=training_session_player.player.license_number, license_type=training_session_player.player.license_type), status=training_session_player.status) for training_session_player in result.items])
 
     async def search_players_not_in_training_session(self, club_id: str, training_session_id: str, collective_id: str | None = None, search_query: str = "") -> list[ClubPlayerDTO]:
         async with self.async_session_maker() as session:
-            stmt = select(Player).where(Player.club_id == club_id, Player.id.notin_(select(TrainingSessionPlayer.player_id).where(TrainingSessionPlayer.training_session_id == training_session_id)))
+            stmt = select(Player).join(TrainingSessionPlayer).where(Player.club_id == club_id, Player.id.notin_(select(TrainingSessionPlayer.player_id).where(TrainingSessionPlayer.training_session_id == training_session_id)))
             if collective_id:
                 stmt = stmt.where(Player.id.in_(select(CollectivePlayer.player_id).where(CollectivePlayer.collective_id == collective_id)))
             if search_query:

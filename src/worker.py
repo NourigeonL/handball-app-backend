@@ -226,12 +226,14 @@ class Worker:
             await session.merge(training_session_player)
         else:
             training_session_player = TrainingSessionPlayer(training_session_id=event.training_session_id, player_id=event.player_id, status=TrainingSessionPlayerStatus.PRESENT)
+            session.add(training_session_player)
+            await session.merge(training_session_player)
         app_logger.info(f"PlayerTrainingSessionStatusChangedToPresent: {event.training_session_id}")
         
         training_session.number_of_players_present += 1
         await session.merge(training_session)
-        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_training_session_updated"})
-        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_training_session_list_updated"})
+        await service_locator.websocket_manager.send_message(training_session.club_id, {"type": "club_training_session_updated"})
+        await service_locator.websocket_manager.send_message(training_session.club_id, {"type": "club_training_session_list_updated"})
         
     @dispatch(training_session_events.PlayerTrainingSessionStatusChangedToAbsent, AsyncSession)
     async def handle(self, event: training_session_events.PlayerTrainingSessionStatusChangedToAbsent, session: AsyncSession) -> None:
@@ -254,12 +256,14 @@ class Worker:
             await session.merge(training_session_player)
         else:
             training_session_player = TrainingSessionPlayer(training_session_id=event.training_session_id, player_id=event.player_id, status=TrainingSessionPlayerStatus.ABSENT, reason=event.reason, with_reason=event.with_reason)
+            session.add(training_session_player)
+            await session.merge(training_session_player)
         app_logger.info(f"PlayerTrainingSessionStatusChangedToAbsent: {event.training_session_id}")
         
         training_session.number_of_players_absent += 1
         await session.merge(training_session)
-        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_training_session_updated"})
-        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_training_session_list_updated"})
+        await service_locator.websocket_manager.send_message(training_session.club_id, {"type": "club_training_session_updated"})
+        await service_locator.websocket_manager.send_message(training_session.club_id, {"type": "club_training_session_list_updated"})
     
     @dispatch(training_session_events.PlayerTrainingSessionStatusChangedToLate, AsyncSession)
     async def handle(self, event: training_session_events.PlayerTrainingSessionStatusChangedToLate, session: AsyncSession) -> None:
@@ -282,9 +286,11 @@ class Worker:
             await session.merge(training_session_player)
         else:
             training_session_player = TrainingSessionPlayer(training_session_id=event.training_session_id, player_id=event.player_id, status=TrainingSessionPlayerStatus.LATE, reason=event.reason, with_reason=event.with_reason, arrival_time=event.arrival_time)
+            session.add(training_session_player)
+            await session.merge(training_session_player)
         app_logger.info(f"PlayerTrainingSessionStatusChangedToLate: {event.training_session_id}")
         
         training_session.number_of_players_late += 1
         await session.merge(training_session)
-        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_training_session_updated"})
-        await service_locator.websocket_manager.send_message(event.club_id, {"type": "club_training_session_list_updated"})
+        await service_locator.websocket_manager.send_message(training_session.club_id, {"type": "club_training_session_updated"})
+        await service_locator.websocket_manager.send_message(training_session.club_id, {"type": "club_training_session_list_updated"})
